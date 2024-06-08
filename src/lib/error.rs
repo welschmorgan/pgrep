@@ -1,7 +1,9 @@
+use std::path::PathBuf;
+
 #[derive(Debug)]
 pub enum Error {
   Init(String),
-  IO(String),
+  IO(String, Option<Box<dyn std::error::Error>>),
   Unknown(String),
 }
 
@@ -11,10 +13,14 @@ impl std::fmt::Display for Error {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     write!(
       f,
-      "{}{}",
+      "{}{}{}",
       self.kind(),
       match self.message() {
         Some(m) => format!(": {}", m),
+        None => String::new(),
+      },
+      match self.cause() {
+        Some(c) => format!("\nCaused by: {}", c),
         None => String::new(),
       }
     )
@@ -24,17 +30,25 @@ impl std::fmt::Display for Error {
 impl Error {
   pub fn kind<'a>(&self) -> &'a str {
     match self {
-      Self::Init(_) => "Initialization",
-      Self::IO(_) => "I/O",
-      Self::Unknown(_) => "Unknown",
+      Self::Init(..) => "Initialization",
+      Self::IO(..) => "I/O",
+      Self::Unknown(..) => "Unknown",
     }
   }
 
-  pub fn message<'a>(&'a self) -> Option<&'a String> {
+  pub fn message(&self) -> Option<&String> {
     match self {
-      Self::Init(m) => Some(&m),
-      Self::IO(m) => Some(&m),
-      Self::Unknown(m) => Some(&m),
+      Self::Init(m) => Some(m),
+      Self::IO(m, ..) => Some(m),
+      Self::Unknown(m) => Some(m),
+    }
+  }
+
+  pub fn cause(&self) -> Option<&Box<dyn std::error::Error>> {
+    match self {
+      Self::Init(..) => None,
+      Self::IO(_, c) => c.as_ref(),
+      Self::Unknown(..) => None,
     }
   }
 }
@@ -55,30 +69,48 @@ impl From<log::SetLoggerError> for Error {
 
 impl From<std::io::Error> for Error {
   fn from(value: std::io::Error) -> Self {
-    Error::IO(value.to_string())
+    Error::IO(value.to_string(), None)
   }
 }
 
 impl From<toml::de::Error> for Error {
   fn from(value: toml::de::Error) -> Self {
-    Error::IO(value.to_string())
+    Error::IO(
+      "failed to deserialize entity".to_string(),
+      Some(Box::new(value)),
+    )
   }
 }
 
 impl From<toml::ser::Error> for Error {
   fn from(value: toml::ser::Error) -> Self {
-    Error::IO(value.to_string())
+    Error::IO(
+      "failed to serialize entity".to_string(),
+      Some(Box::new(value)),
+    )
   }
 }
 
 impl From<rmp_serde::decode::Error> for Error {
   fn from(value: rmp_serde::decode::Error) -> Self {
-    Error::IO(value.to_string())
+    Error::IO(
+      "failed to deserialize entity".to_string(),
+      Some(Box::new(value)),
+    )
   }
 }
 
 impl From<rmp_serde::encode::Error> for Error {
   fn from(value: rmp_serde::encode::Error) -> Self {
-    Error::IO(value.to_string())
+    Error::IO(
+      "failed to serialize entity".to_string(),
+      Some(Box::new(value)),
+    )
+  }
+}
+
+impl From<chrono::OutOfRangeError> for Error {
+  fn from(value: chrono::OutOfRangeError) -> Self {
+    Error::Unknown(value.to_string())
   }
 }
