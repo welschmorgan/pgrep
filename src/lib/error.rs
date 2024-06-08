@@ -46,3 +46,39 @@ impl From<clap::error::Error> for Error {
     Error::Init(value.to_string())
   }
 }
+
+impl From<log::SetLoggerError> for Error {
+  fn from(value: log::SetLoggerError) -> Self {
+    Error::Init(value.to_string())
+  }
+}
+
+impl From<std::io::Error> for Error {
+  fn from(value: std::io::Error) -> Self {
+    Error::IO(value.to_string())
+  }
+}
+
+impl From<toml::de::Error> for Error {
+  fn from(value: toml::de::Error) -> Self {
+    Error::IO(value.to_string())
+  }
+}
+
+impl From<toml::ser::Error> for Error {
+  fn from(value: toml::ser::Error) -> Self {
+    Error::IO(value.to_string())
+  }
+}
+
+impl From<rmp_serde::decode::Error> for Error {
+  fn from(value: rmp_serde::decode::Error) -> Self {
+    Error::IO(value.to_string())
+  }
+}
+
+impl From<rmp_serde::encode::Error> for Error {
+  fn from(value: rmp_serde::encode::Error) -> Self {
+    Error::IO(value.to_string())
+  }
+}
