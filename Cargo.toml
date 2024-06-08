@@ -3,4 +3,13 @@ name = "pgrep"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "pgrep"
+path = "src/bin/main.rs"
+
+[lib]
+name = "pgrep"
+path = "src/lib/mod.rs"
+
 [dependencies]
+clap = { version = "4.5.6", features = ['derive'] }
