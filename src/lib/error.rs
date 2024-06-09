@@ -28,6 +28,15 @@ impl std::fmt::Display for Error {
 }
 
 impl Error {
+  pub fn with_context(mut self, prefix: String) -> Self {
+    match &mut self {
+      Self::Init(m) => *m = format!("{}, {}", prefix, m),
+      Self::IO(m, ..) => *m = format!("{}, {}", prefix, m),
+      Self::Unknown(m) => *m = format!("{}, {}", prefix, m),
+    };
+    self
+  }
+
   pub fn kind<'a>(&self) -> &'a str {
     match self {
       Self::Init(..) => "Initialization",

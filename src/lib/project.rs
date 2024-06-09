@@ -223,6 +223,30 @@ impl Project {
   }
 }
 
+pub trait ProjectWriter {
+  fn write(&self, to: &mut dyn std::io::Write, project: &Project) -> std::io::Result<()>;
+}
+
+pub type BoxedProjectWriter = Box<dyn ProjectWriter>;
+
+pub struct TextProjectWriter {}
+
+impl ProjectWriter for TextProjectWriter {
+  fn write(&self, to: &mut dyn std::io::Write, project: &Project) -> std::io::Result<()> {
+    write!(
+      to,
+      "{:?} {} - {}",
+      project.kinds(),
+      project.name().unwrap(),
+      project.path().display()
+    )
+  }
+}
+
+pub fn default_project_writer() -> BoxedProjectWriter {
+  Box::new(TextProjectWriter{})
+}
+
 pub fn detect_projects(scan: &FolderScan) -> Vec<Project> {
   let mut ret = vec![];
   let mut project_roots: HashMap<PathBuf, Vec<ProjectKind>> = HashMap::new();

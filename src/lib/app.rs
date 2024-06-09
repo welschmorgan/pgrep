@@ -1,13 +1,10 @@
 use std::{
-  collections::HashMap,
-  path::{Path, PathBuf},
-  str::FromStr,
-  sync::{Arc, Mutex},
+  collections::HashMap, io::stdout, path::{Path, PathBuf}, str::FromStr, sync::{Arc, Mutex}
 };
 
+use crate::{cache, default_project_writer, detect_projects, BoxedProjectWriter, Cache, Config, Error, FolderScan, ProjectKind, Query};
 use clap::{builder::TypedValueParser, Parser, ValueHint};
 use log::{debug, error, info, trace, warn};
-use crate::{cache, detect_projects, Cache, Config, Error, FolderScan, ProjectKind, Query};
 
 #[derive(Debug, Parser)]
 #[command(version)]
@@ -19,7 +16,7 @@ pub struct AppOptions {
 \t- '_': a required character\n\
 \t- '#': a required digit\n\
 \t- '*': any string\n"), value_parser = parse_query)]
-query: Query,
+  query: Query,
 
   /// Specify a custom config file to load.
   #[arg(short, long)]
@@ -35,8 +32,7 @@ query: Query,
 }
 
 fn parse_query(s: &str) -> Result<Query, String> {
-  Query::from_str(s)
-      .map_err(|e| format!("`{s}` isn't a valid query, {}", e))
+  Query::from_str(s).map_err(|e| format!("`{s}` isn't a valid query, {}", e))
 }
 
 pub struct App {
@@ -44,6 +40,7 @@ pub struct App {
   config: Config,
   cache: Arc<Mutex<Cache>>,
   query: Query,
+  writer: BoxedProjectWriter,
 }
 
 impl App {
@@ -53,8 +50,15 @@ impl App {
     let dflt_config = Config::default();
     let config = if let Some(path) = &options.config {
       if !path.exists() {
-        let mut f = std::fs::File::create_new(path)?;
-        dflt_config.write(&mut f)?;
+        let mut f = std::fs::File::create_new(path).map_err(|e| {
+          Error::IO(
+            format!("failed to create config file '{}'", path.display()),
+            Some(Box::new(e)),
+          )
+        })?;
+        dflt_config
+          .write(&mut f)
+          .map_err(|e| e.with_context("failed to serialize default config".to_string()))?;
       }
       Config::parse(path)?
     } else {
@@ -67,10 +71,11 @@ impl App {
     }
     let query = options.query.clone();
     Ok(Self {
+      writer: default_project_writer(),
       options,
       config,
       cache,
-      query
+      query,
     })
   }
 
@@ -111,21 +116,23 @@ impl App {
               return true;
             }
           }
-          project.path().components().find(|part| {
-            if let Some(part_str) = part.as_os_str().to_str() {
-              return self.query.matches(part_str);
-            }
-            return false;
-          }).is_some()
+          project
+            .path()
+            .components()
+            .find(|part| {
+              if let Some(part_str) = part.as_os_str().to_str() {
+                return self.query.matches(part_str);
+              }
+              return false;
+            })
+            .is_some()
         })
         .collect::<Vec<_>>();
+      use std::io::Write;
+      let stdout = &mut stdout();
       for proj in matches {
-        println!(
-          "{:?} {} - {}",
-          proj.kinds(),
-          proj.name().unwrap(),
-          proj.path().display()
-        )
+        self.writer.write(stdout, proj)?;
+        write!(stdout, "\n")?;
       }
     }
     self.cache.lock().unwrap().shutdown()?;
