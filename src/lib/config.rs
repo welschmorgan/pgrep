@@ -3,8 +3,9 @@ use std::path::{Path, PathBuf};
 use directories::{ProjectDirs, UserDirs};
 use log::{debug, trace};
 use serde::{Deserialize, Serialize};
+use strum::IntoEnumIterator;
 
-use crate::{get_project_dirs, Error};
+use crate::{get_project_dirs, Error, ProjectKind};
 
 /// Expand a path containing symbolic dirs into an absolute one.
 ///
@@ -75,12 +76,14 @@ pub fn expand_path<P: AsRef<Path>>(path: P) -> crate::Result<PathBuf> {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct GeneralConfig {
   pub folders: Vec<PathBuf>,
+  pub project_kinds: Vec<ProjectKind>,
 }
 
 impl Default for GeneralConfig {
   fn default() -> Self {
     return Self {
       folders: vec![],
+      project_kinds: vec![],
     };
   }
 }
@@ -125,7 +128,8 @@ impl Config {
   /// It will search through [`common directories`] if `path` is not given.
   pub fn path(path: Option<&PathBuf>) -> PathBuf {
     let common_dirs = Self::common_config_dirs();
-    path.cloned()
+    path
+      .cloned()
       .or_else(|| {
         common_dirs
           .iter()
@@ -148,7 +152,7 @@ impl Config {
   /// [`common directories`]: Config::common_config_dirs()
   pub fn load(user_path: Option<&PathBuf>, mut folders: Vec<PathBuf>) -> crate::Result<Self> {
     let dflt_config = Config::default();
-    
+
     let path = Self::path(user_path);
     if !path.exists() {
       debug!("Creating default configuration at '{}'", path.display());
@@ -158,7 +162,7 @@ impl Config {
         .map_err(|e| e.with_context("failed to serialize default config".to_string()))?;
     }
     debug!("Loading user configuration from '{}'", path.display());
-    
+
     let mut config = Config::parse(&path)?;
     let len_before = config.general.folders.len();
     config.general.folders.append(&mut folders);

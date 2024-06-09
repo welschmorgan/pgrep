@@ -72,7 +72,9 @@ impl App {
   /// Run the application, scanning the code folders and filtering projects.
   pub fn run(self) -> crate::Result<()> {
     if self.options.list && self.options.query != Default::default() {
-      return Err(Error::Init(format!("Query given with --list but the two options are mutually exclusive!")));
+      return Err(Error::Init(format!(
+        "Query given with --list but the two options are mutually exclusive!"
+      )));
     }
     if self.options.clean_cache {
       let path = self.cache.lock().unwrap().clean()?;
@@ -99,6 +101,7 @@ impl App {
         .iter()
         .flat_map(|(_, projects)| projects)
         .collect::<Vec<_>>();
+      debug!("found {} projects", projects.len());
       let matches = match self.options.list {
         false => {
           let matches = Self::match_projects(&self.query, &projects);
@@ -127,7 +130,12 @@ impl App {
       let scan = cache.load_store(folder, || FolderScan::new(folder))?;
       projects.insert(
         folder.clone(),
-        cache.load_store(&folder.join(".projects"), || Ok(detect_projects(&scan)))?,
+        cache.load_store(&folder.join(".projects"), || {
+          Ok(detect_projects(
+            &scan,
+            self.config.general.project_kinds.clone(),
+          ))
+        })?,
       );
     }
     Ok(projects)

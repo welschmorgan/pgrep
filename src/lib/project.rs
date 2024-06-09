@@ -1,10 +1,12 @@
 use std::{
   collections::HashMap,
+  fmt::Display,
   path::{Path, PathBuf},
+  process::exit,
 };
 
 use chrono::{DateTime, Local};
-use log::trace;
+use log::{trace, warn};
 use serde::{Deserialize, Serialize};
 use strum::{EnumIter, IntoEnumIterator};
 
@@ -21,14 +23,14 @@ impl FolderScan {
   pub const DIR_EXCLUSIONS: [&'static str; 4] = [".git", "node_modules", "target", "vendor"];
 
   /// Create a new folder scanner
-  /// 
+  ///
   /// # Examples
-  /// 
+  ///
   /// ```
   /// use pgrep::project::FolderScan;
   /// use chrono::Local;
   /// use std::path::PathBuf;
-  /// 
+  ///
   /// let now = Local::now();
   /// let scan = FolderScan::new(".").unwrap();
   /// for file in scan.files() {
@@ -81,9 +83,7 @@ impl FolderScan {
 }
 
 /// A known project kind
-#[derive(
-  Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, EnumIter, Clone, Copy, Hash,
-)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, EnumIter, Clone, Hash)]
 pub enum ProjectKind {
   Rust,
   Go,
@@ -91,11 +91,28 @@ pub enum ProjectKind {
   Node,
   Maven,
   Other,
+  Custom {
+    name: String,
+    language_exts: Vec<String>,
+    project_files: Vec<String>,
+  },
 }
 
 impl ProjectKind {
+  pub fn name(&self) -> String {
+    match self {
+      ProjectKind::Rust => "Rust".to_string(),
+      ProjectKind::Go => "Go".to_string(),
+      ProjectKind::C => "C".to_string(),
+      ProjectKind::Node => "Node".to_string(),
+      ProjectKind::Maven => "Maven".to_string(),
+      ProjectKind::Other => "Other".to_string(),
+      ProjectKind::Custom { name, .. } => name.clone(),
+    }
+  }
+
   /// Retrieve the known project files
-  pub fn project_files(&self) -> Vec<&str> {
+  pub fn project_files(&self) -> Vec<String> {
     match self {
       Self::Rust => vec!["Cargo.toml", "Cargo.lock"],
       Self::Go => vec!["go.mod"],
@@ -103,11 +120,18 @@ impl ProjectKind {
       Self::Node => vec!["package.json", "package.lock"],
       Self::Maven => vec!["pom.xml"],
       Self::Other => vec!["README.md", "LICENSE.md", "CONTRIBUTING.md"],
+      Self::Custom { project_files, .. } => project_files
+        .iter()
+        .map(|ext| ext.as_str())
+        .collect::<Vec<_>>(),
     }
+    .iter()
+    .map(|f| f.to_string())
+    .collect::<Vec<_>>()
   }
 
   /// Retrieve the common source code extensions
-  pub fn language_extensions(&self) -> Vec<&str> {
+  pub fn language_extensions(&self) -> Vec<String> {
     match self {
       Self::Rust => vec!["rs"],
       Self::Go => vec!["go"],
@@ -115,7 +139,20 @@ impl ProjectKind {
       Self::Node => vec!["js", "ts"],
       Self::Maven => vec!["java"],
       Self::Other => vec![],
+      Self::Custom { language_exts, .. } => language_exts
+        .iter()
+        .map(|ext| ext.as_str())
+        .collect::<Vec<_>>(),
     }
+    .iter()
+    .map(|s| s.to_string())
+    .collect::<Vec<_>>()
+  }
+}
+
+impl Display for ProjectKind {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", self.name())
   }
 }
 
@@ -198,9 +235,9 @@ impl Project {
 /// A project writer to support multiple output formats
 pub trait ProjectWriter {
   /// Write the given project to the output stream
-  /// 
+  ///
   /// # Arguments
-  /// 
+  ///
   /// * `to` - The output stream to write to
   /// * `project` - The project to be written
   fn write(&self, to: &mut dyn std::io::Write, project: &Project) -> std::io::Result<()>;
@@ -216,8 +253,8 @@ impl ProjectWriter for TextProjectWriter {
   fn write(&self, to: &mut dyn std::io::Write, project: &Project) -> std::io::Result<()> {
     write!(
       to,
-      "{:?} {} - {}",
-      project.kinds(),
+      "[{}] {} - {}",
+      project.kinds().iter().map(|k| k.name()).collect::<Vec<_>>().join(", "),
       project.name().unwrap(),
       project.path().display()
     )
@@ -226,11 +263,11 @@ impl ProjectWriter for TextProjectWriter {
 
 /// Retrieve the default [`ProjectWriter`]
 pub fn default_project_writer() -> BoxedProjectWriter {
-  Box::new(TextProjectWriter{})
+  Box::new(TextProjectWriter {})
 }
 
 /// Detect all the discovered [`Project`] roots from a given folder scan
-pub fn detect_projects(scan: &FolderScan) -> Vec<Project> {
+pub fn detect_projects(scan: &FolderScan, mut custom_kinds: Vec<ProjectKind>) -> Vec<Project> {
   let mut ret = vec![];
   let mut project_roots: HashMap<PathBuf, Vec<ProjectKind>> = HashMap::new();
   let mut project_files: HashMap<PathBuf, Vec<PathBuf>> = HashMap::new();
@@ -257,7 +294,9 @@ pub fn detect_projects(scan: &FolderScan) -> Vec<Project> {
         .or_insert_with(|| vec![])
         .push(file.clone());
     } else {
-      for kind in ProjectKind::iter() {
+      let mut kinds = ProjectKind::iter().collect::<Vec<_>>();
+      kinds.append(&mut custom_kinds);
+      for kind in &kinds {
         for project_file in kind.project_files() {
           if let Some(fname) = file.file_name() {
             if fname.eq_ignore_ascii_case(project_file) {
@@ -265,7 +304,7 @@ pub fn detect_projects(scan: &FolderScan) -> Vec<Project> {
               project_roots
                 .entry(project_dir.clone())
                 .or_insert_with(|| vec![])
-                .push(kind);
+                .push(kind.clone());
               project_files
                 .entry(project_dir.clone())
                 .or_insert_with(|| vec![])
