@@ -1,6 +1,6 @@
 use std::{path::PathBuf, str::FromStr};
 
-use clap::{builder::TypedValueParser, Parser, ValueHint};
+use clap::Parser;
 
 use crate::Query;
 

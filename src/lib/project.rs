@@ -3,7 +3,7 @@ use std::{
   path::{Path, PathBuf},
 };
 
-use chrono::{DateTime, Duration, Local};
+use chrono::{DateTime, Local};
 use log::{debug, trace};
 use serde::{Deserialize, Serialize};
 use strum::{EnumIter, IntoEnumIterator};
@@ -70,13 +70,6 @@ pub enum ProjectKind {
   Other,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ProjectTypeMatch {
-  pub typ: ProjectKind,
-  pub path: PathBuf,
-  pub files: Vec<PathBuf>,
-}
-
 impl ProjectKind {
   pub fn project_files(&self) -> Vec<&str> {
     match self {
@@ -94,71 +87,6 @@ impl ProjectKind {
       Self::Maven => vec!["java"],
       Self::Other => vec![],
     }
-  }
-
-  pub fn detect(scan: &FolderScan) -> crate::Result<Vec<ProjectTypeMatch>> {
-    let mut ret = vec![];
-    for typ in Self::iter() {
-      let mut matching_files = Self::detect_extensions(scan, typ)?;
-      matching_files.append(&mut Self::detect_project_files(scan, typ)?);
-      matching_files.sort();
-      matching_files.dedup();
-      debug!(
-        "ProjectType '{:?}' matched {} times for {}",
-        typ,
-        matching_files.len(),
-        scan.path.display()
-      );
-      if !matching_files.is_empty() {
-        ret.push(ProjectTypeMatch {
-          typ,
-          path: scan.path.clone(),
-          files: matching_files,
-        });
-      }
-    }
-    Ok(ret)
-  }
-
-  fn detect_extensions(scan: &FolderScan, typ: ProjectKind) -> crate::Result<Vec<PathBuf>> {
-    let mut ret = vec![];
-    for ext in typ.language_extensions() {
-      ret.append(
-        &mut scan
-          .files
-          .iter()
-          .filter(|file| {
-            if let Some(file_ext) = file.extension() {
-              return file_ext.eq_ignore_ascii_case(ext);
-            }
-            false
-          })
-          .map(|file| file.clone())
-          .collect::<Vec<_>>(),
-      );
-    }
-    Ok(ret)
-  }
-
-  fn detect_project_files(scan: &FolderScan, typ: ProjectKind) -> crate::Result<Vec<PathBuf>> {
-    let mut ret = vec![];
-    for prj_file in typ.project_files() {
-      let abs_path = scan.path.join(prj_file);
-      if abs_path.exists() {
-        ret.push(abs_path);
-      }
-      for file in &scan.files {
-        if let Some(fname) = file.file_name() {
-          if fname.eq_ignore_ascii_case(prj_file) {
-            ret.push(file.clone());
-          }
-        }
-        if file.ends_with(prj_file) {
-          ret.push(file.clone())
-        }
-      }
-    }
-    Ok(ret)
   }
 }
 

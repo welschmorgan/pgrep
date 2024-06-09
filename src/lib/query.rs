@@ -1,6 +1,5 @@
 use std::{fmt::Display, str::FromStr};
 
-use clap::builder::{ValueParser, ValueParserFactory};
 
 use crate::Error;
 

@@ -1,16 +1,15 @@
 use std::{
   collections::HashMap,
   io::stdout,
-  path::{Path, PathBuf},
-  str::FromStr,
+  path::PathBuf,
   sync::{Arc, Mutex},
 };
 
 use crate::{
-  cache, default_project_writer, detect_projects, AppOptions, BoxedProjectWriter, Cache, Config, Error, FolderScan, Project, ProjectKind, Query
+  cache, default_project_writer, detect_projects, AppOptions, BoxedProjectWriter, Cache, Config, Error, FolderScan, Project, Query
 };
 use clap::Parser;
-use log::{debug, error, info, trace, warn};
+use log::{debug, error, trace, warn};
 
 pub struct App {
   options: AppOptions,

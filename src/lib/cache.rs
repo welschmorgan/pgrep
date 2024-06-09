@@ -1,14 +1,13 @@
 use std::{
   collections::HashMap,
-  io::ErrorKind,
   path::{Path, PathBuf},
   sync::{Arc, Mutex},
 };
 
-use chrono::{DateTime, Duration, Local, NaiveDate, NaiveDateTime, TimeDelta, TimeZone, Utc};
+use chrono::{DateTime, Duration, Local};
 use directories::ProjectDirs;
 use lazy_static::lazy_static;
-use log::{debug, error};
+use log::debug;
 use rmp_serde::{Deserializer, Serializer};
 use serde::{Deserialize, Serialize};
 
