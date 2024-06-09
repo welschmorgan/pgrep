@@ -11,15 +11,27 @@ use crate::{
 use clap::Parser;
 use log::{debug, error, warn};
 
+/// The application structure
 pub struct App {
+  /// The command-line options
   options: AppOptions,
+  /// The loaded configuration
   config: Config,
+  /// The cache store
   cache: Arc<Mutex<Cache>>,
+  /// The parsed query
   query: Query,
+  /// The project writer to use
   writer: BoxedProjectWriter,
 }
 
 impl App {
+  /// Create a new application instance.
+  /// This will:
+  ///   - configure the logger
+  ///   - parse the command-line options
+  ///   - load the user configuration
+  ///   - parse the query string
   pub fn new() -> crate::Result<Self> {
     pretty_env_logger::try_init()?;
     let options = AppOptions::parse();
@@ -38,6 +50,7 @@ impl App {
     })
   }
 
+  /// Run the application, scanning the code folders and filtering projects.
   pub fn run(self) -> crate::Result<()> {
     if self.options.clean_cache {
       let path = self.cache.lock().unwrap().clean()?;
@@ -59,6 +72,7 @@ impl App {
     Ok(())
   }
 
+  /// Scan code folders and extract project roots
   pub fn list_projects(&self) -> crate::Result<HashMap<PathBuf, Vec<Project>>> {
     let mut projects = HashMap::new();
     for folder in &self.config.general.folders {
@@ -72,6 +86,7 @@ impl App {
     Ok(projects)
   }
 
+  /// Filter discovered project using the command-line query
   pub fn match_projects<'a>(
     query: &'a Query,
     projects: &'a HashMap<PathBuf, Vec<Project>>,
@@ -99,6 +114,7 @@ impl App {
       .collect::<Vec<_>>()
   }
 
+  /// Write the report to the configured writer
   pub fn write_report<'a>(&'a self, matches: &'a Vec<&'a Project>) -> crate::Result<()> {
     use std::io::Write;
     let stdout = &mut stdout();

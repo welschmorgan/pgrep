@@ -1,5 +1,6 @@
 
 #[derive(Debug)]
+/// This crate's error type
 pub enum Error {
   Init(String),
   IO(String, Option<Box<dyn std::error::Error>>),
@@ -27,6 +28,7 @@ impl std::fmt::Display for Error {
 }
 
 impl Error {
+  /// Modify the message, prepending `prefix` to the current message
   pub fn with_context(mut self, prefix: String) -> Self {
     match &mut self {
       Self::Init(m) => *m = format!("{}, {}", prefix, m),
@@ -36,6 +38,7 @@ impl Error {
     self
   }
 
+  /// Retrieve the error kind
   pub fn kind<'a>(&self) -> &'a str {
     match self {
       Self::Init(..) => "Initialization",
@@ -44,6 +47,7 @@ impl Error {
     }
   }
 
+  /// Retrieve the stored message
   pub fn message(&self) -> Option<&String> {
     match self {
       Self::Init(m) => Some(m),
@@ -52,6 +56,7 @@ impl Error {
     }
   }
 
+  /// Retrieve the `caused by` field
   pub fn cause(&self) -> Option<&Box<dyn std::error::Error>> {
     match self {
       Self::Init(..) => None,
@@ -61,6 +66,7 @@ impl Error {
   }
 }
 
+/// This crate's result type
 pub type Result<T> = std::result::Result<T, Error>;
 
 impl From<clap::error::Error> for Error {

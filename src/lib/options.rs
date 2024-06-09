@@ -4,16 +4,25 @@ use clap::Parser;
 
 use crate::Query;
 
+/// The query format description for command-line use
+pub const QUERY_FORMAT: &'static str = "The query used to find the project. It supports the following wildcards:\n\
+\t- '?': an optional character\n\
+\t- '_': a required character\n\
+\t- '#': a required digit\n\
+\t- '*': any string\n";
+
 #[derive(Debug, Parser)]
 #[command(version)]
 #[command(author)]
 #[command(about, long_about = None)]
+/// The AppOptions structure represents the command-line options and values
 pub struct AppOptions {
-  #[arg(required_unless_present("clean_cache"), default_value("*"), next_line_help(true), help("The query used to find the project. It supports the following wildcards:\n\
-\t- '?': an optional character\n\
-\t- '_': a required character\n\
-\t- '#': a required digit\n\
-\t- '*': any string\n"), value_parser = parse_query)]
+  /// The query used to filter projects
+  #[arg(required_unless_present("clean_cache"))]
+  #[arg(default_value("*"))]
+  #[arg(next_line_help(true))]
+  #[arg(help(QUERY_FORMAT))]
+  #[arg(value_parser = parse_query)]
   pub query: Query,
 
   /// Specify a custom config file to load.
@@ -29,6 +38,7 @@ pub struct AppOptions {
   pub no_cache: bool,
 }
 
+/// ValueParser helper for [`clap`]
 fn parse_query(s: &str) -> Result<Query, String> {
   Query::from_str(s).map_err(|e| format!("`{s}` isn't a valid query, {}", e))
 }

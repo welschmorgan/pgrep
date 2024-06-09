@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::Error;
 
+/// An index for cache files which allows storing last write times and paths.
 #[derive(Serialize, Deserialize, Default, Clone, PartialEq, Eq)]
 pub struct Index {
   paths: Vec<PathBuf>,
@@ -20,6 +21,7 @@ pub struct Index {
   written_at: Option<DateTime<Local>>,
 }
 
+/// The cache store
 pub struct Cache {
   base_dir: PathBuf,
   index: Index,
@@ -27,10 +29,14 @@ pub struct Cache {
 }
 
 impl Cache {
+  /// The threshold after which to bust the cache, effectively rescanning project roots
   pub const CACHE_BUST_THRESHOLD: Duration = Duration::minutes(5);
+  /// The stored files extension
   pub const CACHE_EXT: &'static str = ".bin";
+  /// The key under which to find the index
   pub const CACHE_INDEX_KEY: &'static str = "index";
 
+  /// Create a new cache store
   fn new() -> crate::Result<Self> {
     let cache_dir = match ProjectDirs::from("com", "darksofts", "rust project grep") {
       Some(proj_dir) => proj_dir.cache_dir().to_path_buf(),
@@ -74,18 +80,22 @@ impl Cache {
     Ok(ret)
   }
 
+  /// If disabled, caching will never occur
   pub fn set_enabled(&mut self, state: bool) {
     self.enabled = state
   }
 
+  /// Enable caching
   pub fn enable(&mut self) {
     self.set_enabled(true)
   }
-
+  
+  /// Disable caching
   pub fn disable(&mut self) {
     self.set_enabled(false)
   }
 
+  /// Save the index
   pub fn save_index(&mut self) -> crate::Result<()> {
     if !self.enabled {
       return Ok(());
@@ -111,6 +121,7 @@ impl Cache {
     Ok(())
   }
 
+  /// Load the index
   pub fn load_index(&mut self) -> crate::Result<()> {
     if !self.enabled {
       return Ok(());
@@ -132,6 +143,7 @@ impl Cache {
     Ok(())
   }
 
+  /// Shutdown the cache store, saving its index
   pub fn shutdown(&mut self) -> crate::Result<()> {
     self.save_index()?;
     Ok(())
@@ -143,6 +155,18 @@ impl Cache {
     Ok(self.base_dir.clone())
   }
 
+  /// Retrieve the on-disk path for a given key.
+  /// This will replace non-alnum characters with '_'
+  /// 
+  /// # Examples
+  /// 
+  /// ```
+  /// use std::path::PathBuf;
+  /// use pgrep::cache;
+  /// 
+  /// assert_eq!(cache().lock().unwrap().path("/home/user/myfile.txt").file_name().unwrap(), PathBuf::from("_home_user_myfile_txt.bin"));
+  /// assert_eq!(cache().lock().unwrap().path("myfile.txt").file_name().unwrap(), PathBuf::from("myfile_txt.bin"));
+  /// ```
   pub fn path<K: AsRef<Path>>(&self, key: K) -> PathBuf {
     let sub = format!("{}", key.as_ref().display())
       .replace("\\", "/")
@@ -158,6 +182,16 @@ impl Cache {
     self.base_dir.join(&sub)
   }
 
+  /// Load a cached entity from the store
+  /// 
+  /// # Examples
+  /// 
+  /// ```
+  /// use std::path::PathBuf;
+  /// use pgrep::{cache, Project, Result};
+  /// 
+  /// let res: Result<Option<Project>> = cache().lock().unwrap().load("C:/dev/project/my_project");
+  /// ```
   pub fn load<'a, K: AsRef<Path>, E: Deserialize<'a>>(&self, key: K) -> crate::Result<Option<E>> {
     if !self.enabled {
       return Ok(None);
@@ -196,6 +230,22 @@ impl Cache {
     Ok(Some(ret))
   }
 
+  /// Save an entity to the cache store
+  /// 
+  /// # Examples
+  /// 
+  /// ```
+  /// use std::path::PathBuf;
+  /// use pgrep::{cache, Project, Result, ProjectKind};
+  /// 
+  /// let project = Project::new(
+  ///   "C:/dev/project/my_project", 
+  ///   vec![ProjectKind::Rust], 
+  ///   vec![PathBuf::from("C:/dev/project/my_project/src/main.rs")],
+  ///   vec![PathBuf::from("C:/dev/project/my_project/Cargo.toml")]
+  /// );
+  /// let res: Result<PathBuf> = cache().lock().unwrap().store(project.path(), &project);
+  /// ```
   pub fn store<K: AsRef<Path>, E: Serialize>(
     &mut self,
     key: &K,
@@ -229,6 +279,25 @@ impl Cache {
     Ok(path)
   }
 
+  /// Load the entity from cache if it was found in the store and the [`Self::CACHE_BUST_THRESHOLD`]
+  /// has not been reached yet.
+  /// 
+  /// Otherwise store the entity provided by the `action` parameter.
+  /// 
+  /// # Examples
+  /// 
+  /// ```
+  /// use std::path::PathBuf;
+  /// use pgrep::{cache, Project, Result, ProjectKind};
+  /// 
+  /// let path = PathBuf::from("C:/dev/project/my_project");
+  /// let project: Result<Project> = cache().lock().unwrap().load_store(&path, || Ok(Project::new(
+  ///   path.clone(), 
+  ///   vec![ProjectKind::Rust], 
+  ///   vec![PathBuf::from("C:/dev/project/my_project/src/main.rs")],
+  ///   vec![PathBuf::from("C:/dev/project/my_project/Cargo.toml")]
+  /// )));
+  /// ```
   pub fn load_store<
     'a,
     K: AsRef<Path>,
@@ -249,10 +318,12 @@ impl Cache {
 }
 
 lazy_static! {
+  /// The global cache instance as a mutexed [`std::sync::Arc`]
   static ref _INST: Arc<Mutex<Cache>> =
     Arc::new(Mutex::new(Cache::new().expect("failed to create cache")));
 }
 
+/// Retrieve the global cache instance
 pub fn cache() -> &'static Arc<Mutex<Cache>> {
   &_INST
 }

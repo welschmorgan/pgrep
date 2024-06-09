@@ -3,28 +3,32 @@ use std::{fmt::Display, str::FromStr};
 
 use crate::Error;
 
+/// Some part of a [`Query`] expression
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Part {
+  /// An optional character. Corresponds to `?`
   OptionalChar,
+  /// A required character. Corresponds to `_`
   RequiredChar,
+  /// Any string. Corresponds to `*`
   AnyStr,
-  Digit,
+  /// A contiguous stream of integers. Corresponds to `#`
+  Integer,
+  /// A fixed-length string
   Fixed(String),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Query {
-  expr: String,
-  parts: Vec<Part>,
-}
-
+/// Represents a match against a string and a [`Query`]. This is an [`Option`] equivalent.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PartMatch {
+  /// The part was matched successfully, and the cursor must be advanced by as much chars
   Success(usize),
+  /// The part failed to match
   Failure
 }
 
 impl PartMatch {
+  /// Helper to find if the part matched successfully
   pub fn is_success(&self) -> bool {
     match self {
       Self::Success(..) => true,
@@ -32,6 +36,7 @@ impl PartMatch {
     }
   }
 
+  /// Helper to find if the part did NOT match
   pub fn is_failure(&self) -> bool {
     match self {
       Self::Success(..) => false,
@@ -40,7 +45,42 @@ impl PartMatch {
   }
 }
 
+/// A glob-like pattern for filtering [`crate::project::Project`]s
+/// 
+/// It supports the following wildcards:
+///   - '?': an optional character
+///   - '_': a required character
+///   - '#': a required digit
+///   - '*': any string
+/// 
+/// # Examples
+/// 
+/// ```
+/// use pgrep::Query;
+/// 
+/// let q = "abc*".parse::<Query>().unwrap(); // accepts 'abcdefg' and 'abc' but not 'zabc'
+/// let q = "*abc".parse::<Query>().unwrap(); // accepts '123abc' and 'abc' but not 'abcz'
+/// let q = "abc#".parse::<Query>().unwrap(); // accepts 'abc1' and 'abc2345' but not 'abcz' or 'abc'
+/// let q = "abc?".parse::<Query>().unwrap(); // accepts 'abc' and 'abca' but not 'abczd'
+/// let q = "abc_".parse::<Query>().unwrap(); // accepts 'abc1' and 'abcz' but not 'abc' or 'abczz'
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Query {
+  /// The original expression
+  expr: String,
+  /// The parsed parts
+  parts: Vec<Part>,
+}
+
 impl Query {
+  /// Internal part-matching logic implementation.
+  /// 
+  /// # Arguments
+  /// 
+  /// `p` - The current part to match
+  /// `part_it` - The part iterator, used to detect next part when matching [`Part::AnyStr`]
+  /// `expr` - The expression to match against
+  /// `ch_id` - The current expression character being matched against
   fn match_part(
     p: &Part,
     part_it: &mut std::slice::Iter<Part>,
@@ -76,7 +116,7 @@ impl Query {
           ch_id = expr.len()
         }
       }
-      Part::Digit => {
+      Part::Integer => {
         let orig_ch_id = ch_id;
         while ch_id < expr.len() {
           if !expr.chars().nth(ch_id).unwrap().is_numeric() {
@@ -107,6 +147,11 @@ impl Query {
     PartMatch::Success(ch_id)
   }
 
+  /// Check if this [`Query`] matches the given expression
+  /// 
+  /// # Arguments
+  /// 
+  /// `expr` - Anything that can be considered a string ref. In the form `*abc?`
   pub fn matches<S: AsRef<str>>(&self, expr: S) -> bool {
     // println!("matches {} on '{}'", self.expr, expr.as_ref());
     let mut ch_id = 0;
@@ -138,7 +183,7 @@ impl FromStr for Query {
         '?' => parts.push(Part::OptionalChar),
         '_' => parts.push(Part::RequiredChar),
         '*' => parts.push(Part::AnyStr),
-        '#' => parts.push(Part::Digit),
+        '#' => parts.push(Part::Integer),
         ch => {
           let mut done = false;
           if !parts.is_empty() {
