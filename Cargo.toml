@@ -3,6 +3,7 @@ name = "pgrep"
 version = "0.1.0"
 edition = "2021"
 description = "A developer's tool to help filter through projects"
+license-file = "LICENSE"
 
 [[bin]]
 name = "pgrep"

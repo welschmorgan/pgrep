@@ -11,7 +11,7 @@ use log::debug;
 use rmp_serde::{Deserializer, Serializer};
 use serde::{Deserialize, Serialize};
 
-use crate::Error;
+use crate::{get_project_dirs, Error};
 
 /// An index for cache files which allows storing last write times and paths.
 #[derive(Serialize, Deserialize, Default, Clone, PartialEq, Eq)]
@@ -38,7 +38,7 @@ impl Cache {
 
   /// Create a new cache store
   fn new() -> crate::Result<Self> {
-    let cache_dir = match ProjectDirs::from("com", "darksofts", "rust project grep") {
+    let cache_dir = match get_project_dirs() {
       Some(proj_dir) => proj_dir.cache_dir().to_path_buf(),
       None => PathBuf::from(".cache"),
     };

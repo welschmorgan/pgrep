@@ -1,28 +1,28 @@
 use std::path::{Path, PathBuf};
 
-use directories::UserDirs;
-use log::trace;
+use directories::{ProjectDirs, UserDirs};
+use log::{debug, trace};
 use serde::{Deserialize, Serialize};
 
-use crate::Error;
+use crate::{get_project_dirs, Error};
 
 /// Expand a path containing symbolic dirs into an absolute one.
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```
 /// use pgrep::config::expand_path;
 /// use std::path::PathBuf;
-/// 
+///
 /// let user = |path: &str| PathBuf::from(path.replace("<user>", &whoami::username()));
 /// let expanded = expand_path("~/my_folder").unwrap();
-/// 
+///
 /// #[cfg(target_os = "windows")]
 /// assert_eq!(expanded, user("C:/Users/<user>/my_folder"));
-/// 
+///
 /// #[cfg(target_os = "linux")]
 /// assert_eq!(expanded, user("/home/<user>/my_folder"));
-/// 
+///
 /// #[cfg(target_os = "macos")]
 /// assert_eq!(expanded, user("/Users/<user>/my_folder"));
 /// ```
@@ -30,10 +30,10 @@ use crate::Error;
 /// ```
 /// use pgrep::config::expand_path;
 /// use std::path::PathBuf;
-/// 
+///
 /// std::env::set_var("MY_VAR", "a_value");
-/// 
-/// let expanded = expand_path("/var/${MY_VAR}/my_folder").unwrap(); 
+///
+/// let expanded = expand_path("/var/${MY_VAR}/my_folder").unwrap();
 /// assert_eq!(expanded, PathBuf::from("/var/a_value/my_folder"));
 /// ```
 ///
@@ -61,7 +61,11 @@ pub fn expand_path<P: AsRef<Path>>(path: P) -> crate::Result<PathBuf> {
       if let Ok(env_val) = std::env::var(env_key) {
         ret = format!("{}{}{}", &ret[0..start], env_val, &ret[end + 1..]);
       } else {
-        return Err(Error::Init(format!("{}: invalid configuration value, environment variable '{}' is undefined", path.as_ref().display(), env_key)));
+        return Err(Error::Init(format!(
+          "{}: invalid configuration value, environment variable '{}' is undefined",
+          path.as_ref().display(),
+          env_key
+        )));
       }
     }
   }
@@ -92,27 +96,80 @@ pub struct Config {
 }
 
 impl Config {
+  /// The default configuration file name to search in [`common_directories`]
+  ///
+  /// [`common_directories`]: Config::common_config_dirs
+  pub const DEFAULT_CONFIG_NAME: &'static str = "pgrep.toml";
+
+  /// Retrieve the list of common config directories.
+  /// This is used to sequentially check for a config file in each folder.
+  ///
+  /// On linux, this will give:
+  /// ```json
+  /// [
+  ///   "~/.config/pgrep",
+  ///   "~/.local/share/pgrep",
+  ///   "."
+  /// ]
+  /// ```
+  pub fn common_config_dirs() -> Vec<PathBuf> {
+    let mut ret = vec![];
+    if let Some(proj_dirs) = get_project_dirs() {
+      ret.push(proj_dirs.preference_dir().to_path_buf());
+      ret.push(proj_dirs.config_dir().to_path_buf());
+      ret.push(proj_dirs.config_local_dir().to_path_buf());
+      ret.push(proj_dirs.data_dir().to_path_buf());
+      ret.push(proj_dirs.data_local_dir().to_path_buf());
+    }
+    ret.push(PathBuf::from("."));
+    ret.dedup();
+    ret
+  }
+
   /// Initialize the configuration values.
-  /// If the provided config file path does not exist it creates it
-  /// If no config file path is provided it just returns the default config
+  ///
+  /// If no config file path is specified, it will search the list of [`common directories`] for the [`Config::DEFAULT_CONFIG_NAME`] file
+  /// and if found load it.
+  ///
+  /// If a config file path is specified, it doesn't even try to find the common config dir.
+  ///
+  /// If the config file doesn't exist, it write the default config to it.
+  ///
+  /// [`common directories`]: Config::common_config_dirs()
   pub fn init(path: Option<&PathBuf>) -> crate::Result<Self> {
     let dflt_config = Config::default();
-    let mut config = if let Some(path) = path {
-      if !path.exists() {
-        let mut f = std::fs::File::create_new(path).map_err(|e| {
-          Error::IO(
-            format!("failed to create config file '{}'", path.display()),
-            Some(Box::new(e)),
-          )
-        })?;
-        dflt_config
-          .write(&mut f)
-          .map_err(|e| e.with_context("failed to serialize default config".to_string()))?;
+    let common_dirs = Self::common_config_dirs();
+    let path = path.cloned()
+      .or_else(|| {
+        common_dirs
+          .iter()
+          .map(|config_dir| config_dir.join(Self::DEFAULT_CONFIG_NAME))
+          .find(|config_file| config_file.exists())
+      })
+      .or_else(|| Some(common_dirs[0].join(Self::DEFAULT_CONFIG_NAME)))
+      .unwrap();
+    if !path.exists() {
+      debug!("Creating default configuration at '{}'", path.display());
+      // Create the config dir and write the default config file
+      if let Some(parent) = path.parent() {
+        if !parent.exists() {
+          std::fs::create_dir_all(parent)?;
+        }
       }
-      Config::parse(path)?
-    } else {
+      let mut f = std::fs::File::create_new(&path).map_err(|e| {
+        Error::IO(
+          format!("failed to create config file '{}'", path.display()),
+          Some(Box::new(e)),
+        )
+      })?;
       dflt_config
-    };
+        .write(&mut f)
+        .map_err(|e| e.with_context("failed to serialize default config".to_string()))?;
+    }
+    debug!("Loading user configuration from '{}'", path.display());
+    let mut config = Config::parse(path)?;
+
+    // expand folders
     let mut new_folders = vec![];
     for folder in config.general.folders {
       new_folders.push(expand_path(&folder)?);
@@ -121,7 +178,7 @@ impl Config {
     trace!("Config: {:#?}", config);
     Ok(config)
   }
-  
+
   /// Parse the configuration from a file path
   pub fn parse<P: AsRef<Path>>(path: P) -> crate::Result<Config> {
     let content = std::fs::read_to_string(path)?;
@@ -142,5 +199,15 @@ impl Config {
     r.read_to_string(&mut buf)?;
     *self = toml::from_str(&buf)?;
     Ok(())
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use crate::Config;
+
+  #[test]
+  fn common_dirs() {
+    println!("{:#?}", Config::common_config_dirs());
   }
 }

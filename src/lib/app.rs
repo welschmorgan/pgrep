@@ -9,7 +9,20 @@ use crate::{
   cache, default_project_writer, detect_projects, AppOptions, BoxedProjectWriter, Cache, Config, FolderScan, Project, Query
 };
 use clap::Parser;
+use directories::ProjectDirs;
 use log::{debug, error, warn};
+
+/// The qualifier for windows and macOS config folders
+pub const APP_QUALIFIER: &'static str = "com";
+/// The organization for windows and macOS config folders
+pub const APP_ORGANIZATION: &'static str = "darksofts";
+/// The application for windows and macOS config folders
+pub const APP_APPLICATION: &'static str = env!("CARGO_PKG_NAME");
+
+/// Retrieve the platform-dependent project directories.
+pub fn get_project_dirs() -> Option<ProjectDirs> {
+  ProjectDirs::from(APP_QUALIFIER, APP_ORGANIZATION, APP_APPLICATION)
+}
 
 /// The application structure
 pub struct App {
