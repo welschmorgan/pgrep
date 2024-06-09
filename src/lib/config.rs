@@ -79,13 +79,8 @@ pub struct GeneralConfig {
 
 impl Default for GeneralConfig {
   fn default() -> Self {
-    #[cfg(target_os = "windows")]
     return Self {
-      folders: vec![PathBuf::from("C:/")],
-    };
-    #[cfg(not(target_os = "windows"))]
-    return Self {
-      folders: vec![PathBuf::from("/")],
+      folders: vec![],
     };
   }
 }
@@ -126,7 +121,22 @@ impl Config {
     ret
   }
 
-  /// Initialize the configuration values.
+  /// Retrieve the final configuration path.
+  /// It will search through [`common directories`] if `path` is not given.
+  pub fn path(path: Option<&PathBuf>) -> PathBuf {
+    let common_dirs = Self::common_config_dirs();
+    path.cloned()
+      .or_else(|| {
+        common_dirs
+          .iter()
+          .map(|config_dir| config_dir.join(Self::DEFAULT_CONFIG_NAME))
+          .find(|config_file| config_file.exists())
+      })
+      .or_else(|| Some(common_dirs[0].join(Self::DEFAULT_CONFIG_NAME)))
+      .unwrap()
+  }
+
+  /// Load the configuration values.
   ///
   /// If no config file path is specified, it will search the list of [`common directories`] for the [`Config::DEFAULT_CONFIG_NAME`] file
   /// and if found load it.
@@ -136,38 +146,27 @@ impl Config {
   /// If the config file doesn't exist, it write the default config to it.
   ///
   /// [`common directories`]: Config::common_config_dirs()
-  pub fn init(path: Option<&PathBuf>) -> crate::Result<Self> {
+  pub fn load(user_path: Option<&PathBuf>, mut folders: Vec<PathBuf>) -> crate::Result<Self> {
     let dflt_config = Config::default();
-    let common_dirs = Self::common_config_dirs();
-    let path = path.cloned()
-      .or_else(|| {
-        common_dirs
-          .iter()
-          .map(|config_dir| config_dir.join(Self::DEFAULT_CONFIG_NAME))
-          .find(|config_file| config_file.exists())
-      })
-      .or_else(|| Some(common_dirs[0].join(Self::DEFAULT_CONFIG_NAME)))
-      .unwrap();
+    
+    let path = Self::path(user_path);
     if !path.exists() {
       debug!("Creating default configuration at '{}'", path.display());
       // Create the config dir and write the default config file
-      if let Some(parent) = path.parent() {
-        if !parent.exists() {
-          std::fs::create_dir_all(parent)?;
-        }
-      }
-      let mut f = std::fs::File::create_new(&path).map_err(|e| {
-        Error::IO(
-          format!("failed to create config file '{}'", path.display()),
-          Some(Box::new(e)),
-        )
-      })?;
       dflt_config
-        .write(&mut f)
+        .save(Some(&path))
         .map_err(|e| e.with_context("failed to serialize default config".to_string()))?;
     }
     debug!("Loading user configuration from '{}'", path.display());
-    let mut config = Config::parse(path)?;
+    
+    let mut config = Config::parse(&path)?;
+    let len_before = config.general.folders.len();
+    config.general.folders.append(&mut folders);
+    config.general.folders.sort();
+    config.general.folders.dedup();
+    if config.general.folders.len() != len_before {
+      config.save(Some(&path))?;
+    }
 
     // expand folders
     let mut new_folders = vec![];
@@ -177,6 +176,24 @@ impl Config {
     config.general.folders = new_folders;
     trace!("Config: {:#?}", config);
     Ok(config)
+  }
+
+  /// Save the current configuration to disk.
+  /// If path is supplied it will use this instead of guessing the correct path.
+  pub fn save(&self, path: Option<&PathBuf>) -> crate::Result<()> {
+    let path = Self::path(path);
+    let mut f = std::fs::File::create(&path).map_err(|e| {
+      Error::IO(
+        format!("failed to create config file '{}'", path.display()),
+        Some(Box::new(e)),
+      )
+    })?;
+    if let Some(parent) = path.parent() {
+      if !parent.exists() {
+        std::fs::create_dir_all(parent)?;
+      }
+    }
+    self.write(&mut f)
   }
 
   /// Parse the configuration from a file path

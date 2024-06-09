@@ -6,7 +6,7 @@ use std::{
 };
 
 use crate::{
-  cache, default_project_writer, detect_projects, AppOptions, BoxedProjectWriter, Cache, Config, FolderScan, Project, Query
+  cache, default_project_writer, detect_projects, AppOptions, BoxedProjectWriter, Cache, Config, Error, FolderScan, Project, Query
 };
 use clap::Parser;
 use directories::ProjectDirs;
@@ -48,7 +48,10 @@ impl App {
   pub fn new() -> crate::Result<Self> {
     pretty_env_logger::try_init()?;
     let options = AppOptions::parse();
-    let config = Config::init(options.config.as_ref())?;
+    let config = Config::load(options.config.as_ref(), options.folders.clone())?;
+    if config.general.folders.is_empty() {
+      return Err(Error::Init(format!("No source code folders configured. use -F/--folder to specify one or more.")));
+    }
     let cache = cache().clone();
     if options.no_cache {
       cache.lock().unwrap().disable();

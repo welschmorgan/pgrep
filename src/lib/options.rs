@@ -1,6 +1,6 @@
 use std::{path::PathBuf, str::FromStr};
 
-use clap::Parser;
+use clap::{ArgAction, Parser};
 
 use crate::Query;
 
@@ -36,6 +36,10 @@ pub struct AppOptions {
   /// Disable cache usage.
   #[arg(long)]
   pub no_cache: bool,
+
+  /// Register a new entry to the searchable folders list
+  #[arg(short = 'F', long = "folder", action = ArgAction::Append)]
+  pub folders: Vec<PathBuf>
 }
 
 /// ValueParser helper for [`clap`]
