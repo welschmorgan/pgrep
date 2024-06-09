@@ -6,7 +6,8 @@ use std::{
 };
 
 use crate::{
-  cache, default_project_writer, detect_projects, AppOptions, BoxedProjectWriter, Cache, Config, Error, FolderScan, Project, Query
+  cache, default_project_writer, detect_projects, AppOptions, BoxedProjectWriter, Cache, Config,
+  Error, FolderScan, Project, Query,
 };
 use clap::Parser;
 use directories::ProjectDirs;
@@ -50,7 +51,9 @@ impl App {
     let options = AppOptions::parse();
     let config = Config::load(options.config.as_ref(), options.folders.clone())?;
     if config.general.folders.is_empty() {
-      return Err(Error::Init(format!("No source code folders configured. use -F/--folder to specify one or more.")));
+      return Err(Error::Init(format!(
+        "No source code folders configured. use -F/--folder to specify one or more."
+      )));
     }
     let cache = cache().clone();
     if options.no_cache {
@@ -68,20 +71,48 @@ impl App {
 
   /// Run the application, scanning the code folders and filtering projects.
   pub fn run(self) -> crate::Result<()> {
+    if self.options.list && self.options.query != Default::default() {
+      return Err(Error::Init(format!("Query given with --list but the two options are mutually exclusive!")));
+    }
     if self.options.clean_cache {
       let path = self.cache.lock().unwrap().clean()?;
       warn!("removed '{}'", path.display());
       return Ok(());
     }
-    debug!(
-      "Looking for '{}' in the following paths: {:?}",
-      self.options.query, self.config.general.folders
-    );
+    if !self.options.list {
+      debug!(
+        "Looking for '{}' in the following paths: {:?}",
+        self.options.query, self.config.general.folders
+      );
+    }
+    // get list of projects
     let projects = self.list_projects()?;
     if projects.is_empty() {
-      error!("failed to find '{}'", self.options.query);
+      return Err(Error::Unknown(format!(
+        "no project root discovered for {} dirs:\n{:#?}",
+        self.config.general.folders.len(),
+        self.config.general.folders
+      )));
     } else {
-      let matches = Self::match_projects(&self.query, &projects);
+      // match discovered projects with user query
+      let projects = projects
+        .iter()
+        .flat_map(|(_, projects)| projects)
+        .collect::<Vec<_>>();
+      let matches = match self.options.list {
+        false => {
+          let matches = Self::match_projects(&self.query, &projects);
+          if matches.is_empty() {
+            return Err(Error::Unknown(format!(
+              "no match found for query '{}' in {} projects",
+              self.query,
+              projects.len()
+            )));
+          }
+          matches
+        }
+        true => projects,
+      };
       self.write_report(&matches)?;
     }
     self.cache.lock().unwrap().shutdown()?;
@@ -103,13 +134,9 @@ impl App {
   }
 
   /// Filter discovered project using the command-line query
-  pub fn match_projects<'a>(
-    query: &'a Query,
-    projects: &'a HashMap<PathBuf, Vec<Project>>,
-  ) -> Vec<&'a Project> {
+  pub fn match_projects<'a>(query: &'a Query, projects: &'a Vec<&'a Project>) -> Vec<&'a Project> {
     projects
       .iter()
-      .flat_map(|(_, projects)| projects)
       .filter(|project| {
         if let Some(name) = project.name() {
           if query.matches(&name) {
@@ -127,6 +154,7 @@ impl App {
           })
           .is_some()
       })
+      .map(|proj| *proj)
       .collect::<Vec<_>>()
   }
 

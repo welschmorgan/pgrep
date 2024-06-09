@@ -1,6 +1,5 @@
 use std::{fmt::Display, str::FromStr};
 
-
 use crate::Error;
 
 /// Some part of a [`Query`] expression
@@ -24,7 +23,7 @@ pub enum PartMatch {
   /// The part was matched successfully, and the cursor must be advanced by as much chars
   Success(usize),
   /// The part failed to match
-  Failure
+  Failure,
 }
 
 impl PartMatch {
@@ -32,7 +31,7 @@ impl PartMatch {
   pub fn is_success(&self) -> bool {
     match self {
       Self::Success(..) => true,
-      Self::Failure => false
+      Self::Failure => false,
     }
   }
 
@@ -40,24 +39,24 @@ impl PartMatch {
   pub fn is_failure(&self) -> bool {
     match self {
       Self::Success(..) => false,
-      Self::Failure => true
+      Self::Failure => true,
     }
   }
 }
 
 /// A glob-like pattern for filtering [`crate::project::Project`]s
-/// 
+///
 /// It supports the following wildcards:
 ///   - '?': an optional character
 ///   - '_': a required character
 ///   - '#': a required digit
 ///   - '*': any string
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```
 /// use pgrep::Query;
-/// 
+///
 /// let q = "abc*".parse::<Query>().unwrap(); // accepts 'abcdefg' and 'abc' but not 'zabc'
 /// let q = "*abc".parse::<Query>().unwrap(); // accepts '123abc' and 'abc' but not 'abcz'
 /// let q = "abc#".parse::<Query>().unwrap(); // accepts 'abc1' and 'abc2345' but not 'abcz' or 'abc'
@@ -74,9 +73,9 @@ pub struct Query {
 
 impl Query {
   /// Internal part-matching logic implementation.
-  /// 
+  ///
   /// # Arguments
-  /// 
+  ///
   /// `p` - The current part to match
   /// `part_it` - The part iterator, used to detect next part when matching [`Part::AnyStr`]
   /// `expr` - The expression to match against
@@ -148,9 +147,9 @@ impl Query {
   }
 
   /// Check if this [`Query`] matches the given expression
-  /// 
+  ///
   /// # Arguments
-  /// 
+  ///
   /// `expr` - Anything that can be considered a string ref. In the form `*abc?`
   pub fn matches<S: AsRef<str>>(&self, expr: S) -> bool {
     // println!("matches {} on '{}'", self.expr, expr.as_ref());
@@ -208,6 +207,15 @@ impl Display for Query {
   }
 }
 
+impl Default for Query {
+  fn default() -> Self {
+    Self {
+      expr: "*".to_string(),
+      parts: vec![Part::AnyStr],
+    }
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use crate::Query;
@@ -215,15 +223,19 @@ mod tests {
   fn run_cases(cases: &[(&str, &str, bool)]) {
     for (query, subject, expected) in cases {
       let query = query.parse::<Query>().unwrap();
-      assert_eq!(query.matches(subject), *expected, "\nquery = {}, subject = {}", query.expr, subject);
+      assert_eq!(
+        query.matches(subject),
+        *expected,
+        "\nquery = {}, subject = {}",
+        query.expr,
+        subject
+      );
     }
   }
 
   #[test]
   fn fixed() {
-    run_cases(&[
-      ("myTest", "MYTEST", true)
-    ])
+    run_cases(&[("myTest", "MYTEST", true)])
   }
 
   #[test]
@@ -256,9 +268,6 @@ mod tests {
 
   #[test]
   fn digit() {
-    run_cases(&[
-      ("test#", "test", false),
-      ("test#", "test2", true),
-    ]);
+    run_cases(&[("test#", "test", false), ("test#", "test2", true)]);
   }
 }

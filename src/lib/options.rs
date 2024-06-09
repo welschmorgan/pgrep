@@ -19,6 +19,7 @@ pub const QUERY_FORMAT: &'static str = "The query used to find the project. It s
 pub struct AppOptions {
   /// The query used to filter projects
   #[arg(required_unless_present("clean_cache"))]
+  #[arg(required_unless_present("list"))]
   #[arg(default_value("*"))]
   #[arg(next_line_help(true))]
   #[arg(help(QUERY_FORMAT))]
@@ -39,7 +40,11 @@ pub struct AppOptions {
 
   /// Register a new entry to the searchable folders list
   #[arg(short = 'F', long = "folder", action = ArgAction::Append)]
-  pub folders: Vec<PathBuf>
+  pub folders: Vec<PathBuf>,
+  
+  /// List project without filtering them
+  #[arg(short = 'l', long = "list")]
+  pub list: bool
 }
 
 /// ValueParser helper for [`clap`]
