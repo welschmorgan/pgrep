@@ -1,39 +1,16 @@
 use std::{
-  collections::HashMap, io::stdout, path::{Path, PathBuf}, str::FromStr, sync::{Arc, Mutex}
+  collections::HashMap,
+  io::stdout,
+  path::{Path, PathBuf},
+  str::FromStr,
+  sync::{Arc, Mutex},
 };
 
-use crate::{cache, default_project_writer, detect_projects, BoxedProjectWriter, Cache, Config, Error, FolderScan, ProjectKind, Query};
-use clap::{builder::TypedValueParser, Parser, ValueHint};
+use crate::{
+  cache, default_project_writer, detect_projects, AppOptions, BoxedProjectWriter, Cache, Config, Error, FolderScan, Project, ProjectKind, Query
+};
+use clap::Parser;
 use log::{debug, error, info, trace, warn};
-
-#[derive(Debug, Parser)]
-#[command(version)]
-#[command(author)]
-#[command(about, long_about = None)]
-pub struct AppOptions {
-  #[arg(required_unless_present("clean_cache"), default_value("*"), next_line_help(true), help("The query used to find the project. It supports the following wildcards:\n\
-\t- '?': an optional character\n\
-\t- '_': a required character\n\
-\t- '#': a required digit\n\
-\t- '*': any string\n"), value_parser = parse_query)]
-  query: Query,
-
-  /// Specify a custom config file to load.
-  #[arg(short, long)]
-  config: Option<PathBuf>,
-
-  /// Clean the cache folder and exit.
-  #[arg(long, exclusive(true))]
-  clean_cache: bool,
-
-  /// Disable cache usage.
-  #[arg(long)]
-  no_cache: bool,
-}
-
-fn parse_query(s: &str) -> Result<Query, String> {
-  Query::from_str(s).map_err(|e| format!("`{s}` isn't a valid query, {}", e))
-}
 
 pub struct App {
   options: AppOptions,
@@ -89,6 +66,18 @@ impl App {
       "Looking for '{}' in the following paths: {:?}",
       self.options.query, self.config.general.folders
     );
+    let projects = self.list_projects()?;
+    if projects.is_empty() {
+      error!("failed to find '{}'", self.options.query);
+    } else {
+      let matches = Self::match_projects(&self.query, &projects);
+      self.write_report(&matches)?;
+    }
+    self.cache.lock().unwrap().shutdown()?;
+    Ok(())
+  }
+
+  pub fn list_projects(&self) -> crate::Result<HashMap<PathBuf, Vec<Project>>> {
     let mut projects = HashMap::new();
     for folder in &self.config.general.folders {
       let mut cache = self.cache.lock().unwrap();
@@ -98,44 +87,43 @@ impl App {
         cache.load_store(&folder.join(".projects"), || Ok(detect_projects(&scan)))?,
       );
     }
-    if projects.is_empty() {
-      error!("failed to find '{}'", self.options.query);
-    } else {
-      // for (path, projects) in &matches {
-      //   println!("{}:", path.display());
-      //   for project in projects {
-      //     println!("  - {:?} {}", project.kinds(), project.path().display());
-      //   }
-      // }
-      let matches = projects
-        .iter()
-        .flat_map(|(_, projects)| projects)
-        .filter(|project| {
-          if let Some(name) = project.name() {
-            if self.query.matches(&name) {
-              return true;
-            }
+    Ok(projects)
+  }
+
+  pub fn match_projects<'a>(
+    query: &'a Query,
+    projects: &'a HashMap<PathBuf, Vec<Project>>,
+  ) -> Vec<&'a Project> {
+    projects
+      .iter()
+      .flat_map(|(_, projects)| projects)
+      .filter(|project| {
+        if let Some(name) = project.name() {
+          if query.matches(&name) {
+            return true;
           }
-          project
-            .path()
-            .components()
-            .find(|part| {
-              if let Some(part_str) = part.as_os_str().to_str() {
-                return self.query.matches(part_str);
-              }
-              return false;
-            })
-            .is_some()
-        })
-        .collect::<Vec<_>>();
-      use std::io::Write;
-      let stdout = &mut stdout();
-      for proj in matches {
-        self.writer.write(stdout, proj)?;
-        write!(stdout, "\n")?;
-      }
+        }
+        project
+          .path()
+          .components()
+          .find(|part| {
+            if let Some(part_str) = part.as_os_str().to_str() {
+              return query.matches(part_str);
+            }
+            return false;
+          })
+          .is_some()
+      })
+      .collect::<Vec<_>>()
+  }
+
+  pub fn write_report<'a>(&'a self, matches: &'a Vec<&'a Project>) -> crate::Result<()> {
+    use std::io::Write;
+    let stdout = &mut stdout();
+    for proj in matches {
+      self.writer.write(stdout, proj)?;
+      write!(stdout, "\n")?;
     }
-    self.cache.lock().unwrap().shutdown()?;
     Ok(())
   }
 }
