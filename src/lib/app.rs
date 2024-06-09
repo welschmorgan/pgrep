@@ -6,10 +6,10 @@ use std::{
 };
 
 use crate::{
-  cache, default_project_writer, detect_projects, AppOptions, BoxedProjectWriter, Cache, Config, Error, FolderScan, Project, Query
+  cache, default_project_writer, detect_projects, AppOptions, BoxedProjectWriter, Cache, Config, FolderScan, Project, Query
 };
 use clap::Parser;
-use log::{debug, error, trace, warn};
+use log::{debug, error, warn};
 
 pub struct App {
   options: AppOptions,
@@ -23,24 +23,7 @@ impl App {
   pub fn new() -> crate::Result<Self> {
     pretty_env_logger::try_init()?;
     let options = AppOptions::parse();
-    let dflt_config = Config::default();
-    let config = if let Some(path) = &options.config {
-      if !path.exists() {
-        let mut f = std::fs::File::create_new(path).map_err(|e| {
-          Error::IO(
-            format!("failed to create config file '{}'", path.display()),
-            Some(Box::new(e)),
-          )
-        })?;
-        dflt_config
-          .write(&mut f)
-          .map_err(|e| e.with_context("failed to serialize default config".to_string()))?;
-      }
-      Config::parse(path)?
-    } else {
-      dflt_config
-    };
-    trace!("Config: {:#?}", config);
+    let config = Config::init(options.config.as_ref())?;
     let cache = cache().clone();
     if options.no_cache {
       cache.lock().unwrap().disable();

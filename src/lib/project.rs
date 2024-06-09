@@ -4,7 +4,7 @@ use std::{
 };
 
 use chrono::{DateTime, Local};
-use log::{debug, trace};
+use log::trace;
 use serde::{Deserialize, Serialize};
 use strum::{EnumIter, IntoEnumIterator};
 
