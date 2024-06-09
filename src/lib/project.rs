@@ -86,6 +86,8 @@ impl FolderScan {
 )]
 pub enum ProjectKind {
   Rust,
+  Go,
+  C,
   Node,
   Maven,
   Other,
@@ -96,6 +98,8 @@ impl ProjectKind {
   pub fn project_files(&self) -> Vec<&str> {
     match self {
       Self::Rust => vec!["Cargo.toml", "Cargo.lock"],
+      Self::Go => vec!["go.mod"],
+      Self::C => vec!["Makefile", "CMakefile"],
       Self::Node => vec!["package.json", "package.lock"],
       Self::Maven => vec!["pom.xml"],
       Self::Other => vec!["README.md", "LICENSE.md", "CONTRIBUTING.md"],
@@ -106,6 +110,8 @@ impl ProjectKind {
   pub fn language_extensions(&self) -> Vec<&str> {
     match self {
       Self::Rust => vec!["rs"],
+      Self::Go => vec!["go"],
+      Self::C => vec!["c", "h", "cc", "cpp", "cxx", "hh", "hxx", "hpp"],
       Self::Node => vec!["js", "ts"],
       Self::Maven => vec!["java"],
       Self::Other => vec![],
