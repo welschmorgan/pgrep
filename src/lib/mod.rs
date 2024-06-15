@@ -26,7 +26,7 @@ pub mod error;
 pub mod project;
 pub mod query;
 pub mod options;
-pub mod formats;
+pub mod fmt;
 
 pub use app::*;
 pub use cache::*;
@@ -35,4 +35,4 @@ pub use error::*;
 pub use project::*;
 pub use query::*;
 pub use options::*;
-pub use formats::*;
+pub use fmt::*;

@@ -17,7 +17,7 @@ pub mod html;
 pub mod markdown;
 
 /// A project writer to support multiple output formats
-pub trait ProjectMatchesWriter {
+pub trait ProjectMatchesFormatter {
   /// Write the given project to the output stream
   ///
   /// # Arguments
@@ -32,7 +32,7 @@ pub trait ProjectMatchesWriter {
 }
 
 /// A boxed [`ProjectWriter`]
-pub type BoxedProjectMatchesWriter = Box<dyn ProjectMatchesWriter>;
+pub type BoxedProjectMatchesFormatter = Box<dyn ProjectMatchesFormatter>;
 
 #[derive(ValueEnum, EnumIter, VariantNames, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Display, Copy, Clone)]
 pub enum OutputFormat {
@@ -57,7 +57,7 @@ pub enum OutputFormat {
 }
 
 impl OutputFormat {
-  pub fn writer(&self) -> crate::Result<BoxedProjectMatchesWriter> {
+  pub fn formatter(&self) -> crate::Result<BoxedProjectMatchesFormatter> {
     match self {
       #[cfg(feature = "text")]
       Self::Text => Ok(Box::new(text::TextProjectMatchesWriter {})),
@@ -77,14 +77,14 @@ impl OutputFormat {
   }
 }
 
-pub fn supported_formats() -> Vec<(String, BoxedProjectMatchesWriter)> {
+pub fn supported_formats() -> Vec<(String, BoxedProjectMatchesFormatter)> {
   OutputFormat::iter()
-    .map(|fmt| (format!("{:?}", fmt), fmt.writer().unwrap()))
+    .map(|fmt| (format!("{:?}", fmt), fmt.formatter().unwrap()))
     .collect::<Vec<_>>()
 }
 
 /// Retrieve the default [`ProjectWriter`]
-pub fn default_format() -> BoxedProjectMatchesWriter {
+pub fn default_format() -> BoxedProjectMatchesFormatter {
   let mut formats = supported_formats();
   if formats.is_empty() {
     panic!("no output formats supported, enable at least one feature")
@@ -94,7 +94,7 @@ pub fn default_format() -> BoxedProjectMatchesWriter {
 }
 
 /// Retrieve the corresponding format or the default one if not found
-pub fn get_format_or_default<N: AsRef<str>>(name: N) -> Option<BoxedProjectMatchesWriter> {
+pub fn get_format_or_default<N: AsRef<str>>(name: N) -> Option<BoxedProjectMatchesFormatter> {
   let mut formats = supported_formats();
   let wanted_idx = formats.iter().enumerate().find_map(|(idx, (fmt_name, _))| {
     if fmt_name.eq_ignore_ascii_case(name.as_ref()) {

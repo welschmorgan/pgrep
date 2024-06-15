@@ -1,9 +1,9 @@
-use crate::{Project, ProjectMatchesWriter};
+use crate::{Project, ProjectMatchesFormatter};
 
 /// The most basic project writer: a human readable list on stdout
 pub struct CsvProjectMatchesWriter {}
 
-impl ProjectMatchesWriter for CsvProjectMatchesWriter {
+impl ProjectMatchesFormatter for CsvProjectMatchesWriter {
   fn write<'a>(
     &'a self,
     to: &'a mut dyn std::io::Write,
