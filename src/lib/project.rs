@@ -2,11 +2,10 @@ use std::{
   collections::HashMap,
   fmt::Display,
   path::{Path, PathBuf},
-  process::exit,
 };
 
 use chrono::{DateTime, Local};
-use log::{trace, warn};
+use log::trace;
 use serde::{Deserialize, Serialize};
 use strum::{EnumIter, IntoEnumIterator};
 

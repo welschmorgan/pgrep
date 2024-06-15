@@ -71,6 +71,7 @@ impl OutputFormat {
       Self::Html => Ok(Box::new(html::HtmlProjectMatchesWriter {})),
       #[cfg(feature = "markdown")]
       Self::Markdown => Ok(Box::new(markdown::MarkdownProjectMatchesWriter {})),
+      #[allow(unreachable_patterns)]
       _ => Err(Error::Unknown(format!("No supported output formats")))
     }
   }

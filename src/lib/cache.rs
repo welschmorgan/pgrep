@@ -5,7 +5,6 @@ use std::{
 };
 
 use chrono::{DateTime, Duration, Local};
-use directories::ProjectDirs;
 use lazy_static::lazy_static;
 use log::debug;
 use rmp_serde::{Deserializer, Serializer};

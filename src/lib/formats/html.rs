@@ -1,4 +1,4 @@
-use crate::{Error, Project, ProjectMatchesWriter};
+use crate::{Project, ProjectMatchesWriter};
 
 /// The most basic project writer: a human readable list on stdout
 pub struct HtmlProjectMatchesWriter {}

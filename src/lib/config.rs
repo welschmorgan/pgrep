@@ -1,9 +1,8 @@
 use std::path::{Path, PathBuf};
 
-use directories::{ProjectDirs, UserDirs};
+use directories::UserDirs;
 use log::{debug, trace};
 use serde::{Deserialize, Serialize};
-use strum::IntoEnumIterator;
 
 use crate::{get_project_dirs, Error, ProjectKind};
 

@@ -6,12 +6,12 @@ use std::{
 };
 
 use crate::{
-  cache, default_format, detect_projects, get_format_or_default, AppOptions,
+  cache, detect_projects, AppOptions,
   BoxedProjectMatchesWriter, Cache, Config, Error, FolderScan, Project, Query,
 };
 use clap::Parser;
 use directories::ProjectDirs;
-use log::{debug, error, warn};
+use log::{debug, warn};
 
 /// The qualifier for windows and macOS config folders
 pub const APP_QUALIFIER: &'static str = "com";
