@@ -21,16 +21,20 @@ xml = []
 html = []
 markdown = []
 std-formats = ["text", "csv", "json", "xml", "html", "markdown"]
-tui = []
-default = ["std-formats"]
+console = []
+tui = ["dep:ratatui", "dep:crossterm"]
+default = ["std-formats", "console", "tui"]
+crossterm = ["dep:crossterm"]
 
 [dependencies]
 chrono = { version = "0.4.38", features = ["serde"] }
 clap = { version = "4.5.6", features = ['derive', 'cargo', 'env'] }
+crossterm = { version = "0.27.0", features = ["event-stream"], optional = true }
 directories = "5.0.1"
 lazy_static = "1.4.0"
 log = "0.4.21"
 pretty_env_logger = "0.5"
+ratatui = { version = "0.26.3", features = ["crossterm"], optional = true }
 rmp-serde = "1.3.0"
 serde = { version = "1.0.203", features = ["derive"] }
 serde_json = { version = "1.0.117", optional = true }

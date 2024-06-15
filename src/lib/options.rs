@@ -51,6 +51,11 @@ pub struct AppOptions {
   /// Set the output format
   #[arg(long = "format", default_value = OutputFormat::VARIANTS.get(0).unwrap_or(&"text"))]
   pub format: OutputFormat,
+
+  /// Activate terminal ui
+  #[cfg(feature = "tui")]
+  #[arg(long = "tui")]
+  pub tui: bool,
   
   /// List project without filtering them
   #[arg(short = 'l', long = "list")]

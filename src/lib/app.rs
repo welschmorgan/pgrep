@@ -37,8 +37,6 @@ pub struct App {
   query: Query,
   /// The project formatter to use
   formatter: BoxedProjectMatchesFormatter,
-  /// The UI handler to use
-  ui: BoxedUI,
 }
 
 impl App {
@@ -63,7 +61,6 @@ impl App {
     }
     let query = options.query.clone();
     Ok(Self {
-      ui: Box::new(Console::new()),
       formatter: options.format.formatter()?,
       options,
       config,
@@ -124,7 +121,21 @@ impl App {
       .iter()
       .map(|proj| (*proj).clone())
       .collect::<Vec<_>>();
-      self.ui.write_matches(&matches, &self.formatter)?;
+    
+      let mut ui: BoxedUI = match self.options.tui {
+        true => {
+          #[cfg(not(feature = "tui"))]
+          panic!("Feature 'tui' not available");
+          #[cfg(feature = "tui")]
+          {
+            use crate::Terminal;
+            Box::new(Terminal::new()?)
+          }
+        }
+        false => Box::new(Console::new()),
+      };
+      ui.write_matches(&matches, &self.formatter)?;
+      ui.render_loop()?;
     }
     self.cache.lock().unwrap().shutdown()?;
     Ok(())
