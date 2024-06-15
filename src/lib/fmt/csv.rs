@@ -4,10 +4,10 @@ use crate::{Project, ProjectMatchesFormatter};
 pub struct CsvProjectMatchesWriter {}
 
 impl ProjectMatchesFormatter for CsvProjectMatchesWriter {
-  fn write<'a>(
-    &'a self,
-    to: &'a mut dyn std::io::Write,
-    matches: &'a Vec<&'a Project>,
+  fn write(
+    &self,
+    to: &mut dyn std::io::Write,
+    matches: &Vec<Project>,
   ) -> crate::Result<()> {
     let mut rows = vec![
       vec!["Language".to_string(), "Name".to_string(), "Path".to_string()]

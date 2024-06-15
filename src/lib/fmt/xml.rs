@@ -4,10 +4,10 @@ use crate::{Project, ProjectMatchesFormatter};
 pub struct XmlProjectMatchesWriter {}
 
 impl ProjectMatchesFormatter for XmlProjectMatchesWriter {
-  fn write<'a>(
-    &'a self,
-    to: &'a mut dyn std::io::Write,
-    matches: &'a Vec<&'a Project>,
+  fn write(
+    &self,
+    to: &mut dyn std::io::Write,
+    matches: &Vec<Project>,
   ) -> crate::Result<()> {
     writeln!(to, "<?xml version = \"1.0\" encoding = \"UTF-8\" standalone = \"yes\" ?>")?;
     writeln!(to, "<projects>")?;

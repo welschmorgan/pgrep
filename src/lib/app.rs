@@ -6,8 +6,8 @@ use std::{
 };
 
 use crate::{
-  cache, detect_projects, AppOptions,
-  BoxedProjectMatchesFormatter, Cache, Config, Error, FolderScan, Project, Query,
+  cache, detect_projects, AppOptions, BoxedProjectMatchesFormatter, BoxedUI, Cache, Config,
+  Console, Error, FolderScan, Project, Query,
 };
 use clap::Parser;
 use directories::ProjectDirs;
@@ -37,6 +37,8 @@ pub struct App {
   query: Query,
   /// The project formatter to use
   formatter: BoxedProjectMatchesFormatter,
+  /// The UI handler to use
+  ui: BoxedUI,
 }
 
 impl App {
@@ -61,6 +63,7 @@ impl App {
     }
     let query = options.query.clone();
     Ok(Self {
+      ui: Box::new(Console::new()),
       formatter: options.format.formatter()?,
       options,
       config,
@@ -70,7 +73,7 @@ impl App {
   }
 
   /// Run the application, scanning the code folders and filtering projects.
-  pub fn run(self) -> crate::Result<()> {
+  pub fn run(mut self) -> crate::Result<()> {
     if self.options.list && self.options.query != Default::default() {
       return Err(Error::Init(format!(
         "Query given with --list but the two options are mutually exclusive!"
@@ -117,8 +120,11 @@ impl App {
           matches
         }
         true => projects,
-      };
-      self.write_report(&matches)?;
+      }
+      .iter()
+      .map(|proj| (*proj).clone())
+      .collect::<Vec<_>>();
+      self.ui.write_matches(&matches, &self.formatter)?;
     }
     self.cache.lock().unwrap().shutdown()?;
     Ok(())
@@ -169,7 +175,7 @@ impl App {
   }
 
   /// Write the report to the configured writer
-  pub fn write_report<'a>(&'a self, matches: &'a Vec<&'a Project>) -> crate::Result<()> {
+  pub fn write_report(&self, matches: &Vec<Project>) -> crate::Result<()> {
     self.formatter.write(&mut stdout(), matches)?;
     Ok(())
   }

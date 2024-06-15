@@ -21,6 +21,7 @@ xml = []
 html = []
 markdown = []
 std-formats = ["text", "csv", "json", "xml", "html", "markdown"]
+tui = []
 default = ["std-formats"]
 
 [dependencies]

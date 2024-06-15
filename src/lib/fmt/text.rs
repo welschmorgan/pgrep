@@ -4,10 +4,10 @@ use crate::{Project, ProjectMatchesFormatter};
 pub struct TextProjectMatchesWriter {}
 
 impl ProjectMatchesFormatter for TextProjectMatchesWriter {
-  fn write<'a>(
-    &'a self,
-    to: &'a mut dyn std::io::Write,
-    matches: &'a Vec<&'a Project>,
+  fn write(
+    &self,
+    to: &mut dyn std::io::Write,
+    matches: &Vec<Project>,
   ) -> crate::Result<()> {
     for prj in matches {
       writeln!(
