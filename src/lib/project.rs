@@ -84,6 +84,7 @@ impl FolderScan {
 
 /// A known project kind
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, EnumIter, Clone, Hash)]
+#[serde(tag = "type")]
 pub enum ProjectKind {
   Rust,
   Go,
@@ -230,40 +231,6 @@ impl Project {
   pub fn project_files_mut(&mut self) -> &mut Vec<PathBuf> {
     &mut self.project_files
   }
-}
-
-/// A project writer to support multiple output formats
-pub trait ProjectWriter {
-  /// Write the given project to the output stream
-  ///
-  /// # Arguments
-  ///
-  /// * `to` - The output stream to write to
-  /// * `project` - The project to be written
-  fn write(&self, to: &mut dyn std::io::Write, project: &Project) -> std::io::Result<()>;
-}
-
-/// A boxed [`ProjectWriter`]
-pub type BoxedProjectWriter = Box<dyn ProjectWriter>;
-
-/// The most basic project writer: a human readable list on stdout
-pub struct TextProjectWriter {}
-
-impl ProjectWriter for TextProjectWriter {
-  fn write(&self, to: &mut dyn std::io::Write, project: &Project) -> std::io::Result<()> {
-    write!(
-      to,
-      "[{}] {} - {}",
-      project.kinds().iter().map(|k| k.name()).collect::<Vec<_>>().join(", "),
-      project.name().unwrap(),
-      project.path().display()
-    )
-  }
-}
-
-/// Retrieve the default [`ProjectWriter`]
-pub fn default_project_writer() -> BoxedProjectWriter {
-  Box::new(TextProjectWriter {})
 }
 
 /// Detect all the discovered [`Project`] roots from a given folder scan

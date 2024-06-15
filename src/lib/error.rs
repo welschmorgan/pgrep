@@ -1,4 +1,3 @@
-
 #[derive(Debug)]
 /// This crate's error type
 pub enum Error {
@@ -126,5 +125,15 @@ impl From<rmp_serde::encode::Error> for Error {
 impl From<chrono::OutOfRangeError> for Error {
   fn from(value: chrono::OutOfRangeError) -> Self {
     Error::Unknown(value.to_string())
+  }
+}
+
+#[cfg(feature = "json")]
+impl From<serde_json::Error> for Error {
+  fn from(value: serde_json::Error) -> Self {
+    Error::IO(
+      "failed to serialize entity".to_string(),
+      Some(Box::new(value)),
+    )
   }
 }

@@ -6,8 +6,8 @@ use std::{
 };
 
 use crate::{
-  cache, default_project_writer, detect_projects, AppOptions, BoxedProjectWriter, Cache, Config,
-  Error, FolderScan, Project, Query,
+  cache, default_format, detect_projects, get_format_or_default, AppOptions,
+  BoxedProjectMatchesWriter, Cache, Config, Error, FolderScan, Project, Query,
 };
 use clap::Parser;
 use directories::ProjectDirs;
@@ -36,7 +36,7 @@ pub struct App {
   /// The parsed query
   query: Query,
   /// The project writer to use
-  writer: BoxedProjectWriter,
+  writer: BoxedProjectMatchesWriter,
 }
 
 impl App {
@@ -61,7 +61,7 @@ impl App {
     }
     let query = options.query.clone();
     Ok(Self {
-      writer: default_project_writer(),
+      writer: options.format.writer()?,
       options,
       config,
       cache,
@@ -170,12 +170,7 @@ impl App {
 
   /// Write the report to the configured writer
   pub fn write_report<'a>(&'a self, matches: &'a Vec<&'a Project>) -> crate::Result<()> {
-    use std::io::Write;
-    let stdout = &mut stdout();
-    for proj in matches {
-      self.writer.write(stdout, proj)?;
-      write!(stdout, "\n")?;
-    }
+    self.writer.write(&mut stdout(), matches)?;
     Ok(())
   }
 }

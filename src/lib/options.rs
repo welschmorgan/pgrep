@@ -1,8 +1,9 @@
 use std::{path::PathBuf, str::FromStr};
 
 use clap::{ArgAction, Parser};
+use strum::VariantNames;
 
-use crate::Query;
+use crate::{OutputFormat, Query};
 
 /// The query format description for command-line use
 pub const QUERY_FORMAT: &'static str = "The query used to find the project. It supports the following wildcards:\n\
@@ -46,6 +47,10 @@ pub struct AppOptions {
   /// Register a new entry to the searchable folders list
   #[arg(short = 'F', long = "folder", action = ArgAction::Append)]
   pub folders: Vec<PathBuf>,
+
+  /// Set the output format
+  #[arg(long = "format", default_value = OutputFormat::VARIANTS.get(0).unwrap_or(&"text"))]
+  pub format: OutputFormat,
   
   /// List project without filtering them
   #[arg(short = 'l', long = "list")]
