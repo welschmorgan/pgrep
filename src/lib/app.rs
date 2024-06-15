@@ -75,8 +75,10 @@ impl App {
       return Err(Error::Init(format!(
         "Query given with --list but the two options are mutually exclusive!"
       )));
-    }
-    if self.options.clean_cache {
+    } else if self.options.dump_config {
+      println!("{:#?}", self.config);
+      return Ok(());
+    } else if self.options.clean_cache {
       let path = self.cache.lock().unwrap().clean()?;
       warn!("removed '{}'", path.display());
       return Ok(());

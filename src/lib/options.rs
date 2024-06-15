@@ -18,6 +18,7 @@ pub const QUERY_FORMAT: &'static str = "The query used to find the project. It s
 /// The AppOptions structure represents the command-line options and values
 pub struct AppOptions {
   /// The query used to filter projects
+  #[arg(required_unless_present("dump_config"))]
   #[arg(required_unless_present("clean_cache"))]
   #[arg(required_unless_present("list"))]
   #[arg(default_value("*"))]
@@ -29,6 +30,10 @@ pub struct AppOptions {
   /// Specify a custom config file to load.
   #[arg(short, long)]
   pub config: Option<PathBuf>,
+
+  /// Dump the config to stdout then exit
+  #[arg(long)]
+  pub dump_config: bool,
 
   /// Clean the cache folder and exit.
   #[arg(long, exclusive(true))]
