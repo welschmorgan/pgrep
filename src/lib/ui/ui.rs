@@ -1,7 +1,4 @@
-use std::io::{BufWriter, Write as _};
 
-use clap::ValueEnum;
-use strum::{EnumIter, VariantNames};
 
 use crate::{BoxedProjectMatchesFormatter, Project};
 

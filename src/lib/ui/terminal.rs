@@ -1,10 +1,10 @@
 use std::{
-  io::{Stdout, Write as _},
+  io::Stdout,
   panic::{set_hook, take_hook},
   time::Duration,
 };
 
-use crate::{error, Error, Project, UI};
+use crate::{Error, Project, UI};
 
 use crossterm::{
   event::{self, Event, KeyCode},
@@ -12,11 +12,10 @@ use crossterm::{
   terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 
-use log::error;
 use ratatui::{
   backend::CrosstermBackend,
-  layout::Rect,
-  style::{palette::tailwind, Color, Modifier, Style, Stylize as _},
+  layout::{Constraint, Layout},
+  style::{palette::tailwind, Modifier, Style},
   terminal::{Frame, Terminal as RataTerm},
   widgets::{Block, HighlightSpacing, List, ListState, Paragraph},
 };
@@ -24,9 +23,9 @@ use ratatui::{
 pub struct Terminal<'a> {
   term: RataTerm<CrosstermBackend<Stdout>>,
   projects: Vec<Project>,
-  selected_project: usize,
   projects_widget: List<'a>,
   projects_state: ListState,
+  details_opened: bool,
 }
 
 impl<'a> Terminal<'a> {
@@ -36,9 +35,9 @@ impl<'a> Terminal<'a> {
     Ok(Self {
       term,
       projects: vec![],
-      selected_project: 0,
       projects_widget: List::new::<Vec<String>>(vec![]),
       projects_state: ListState::default(),
+      details_opened: false,
     })
   }
 
@@ -67,45 +66,33 @@ impl<'a> Terminal<'a> {
 
   pub fn render_frame(
     projects: &Vec<Project>,
+    details_opened: bool,
     widget: &List,
     state: &mut ListState,
     frame: &mut Frame,
   ) -> crate::Result<()> {
-    frame.render_stateful_widget(widget, frame.size(), state);
-    // let frame_size = frame.size();
-    // let header_rect = Rect::new(frame_size.x, 3)
-    // let header = Paragraph::new("Quit (q) | Details (return)").block(Block::bordered().title("Menu"));
-    // frame.render_widget(header, frame.size());
-
-    // let mut rect = frame.size();
-    // // panic!("range: {:?}", proj_range);
-    // rect.y += 1;
-    // rect.height = 1;
-    // let mut f = std::fs::File::create("frame.log")?;
-    // for (i, project) in projects.iter().enumerate() {
-    //   let mut widget = Paragraph::new(format!(
-    //     "[{}] {} - {}",
-    //     project
-    //       .kinds()
-    //       .iter()
-    //       .map(|k| k.name())
-    //       .collect::<Vec<_>>()
-    //       .join(","),
-    //     project.name().unwrap_or_default(),
-    //     project.path().display()
-    //   ));
-    //   if i == selection {
-    //     widget = widget.bg(Color::White).fg(Color::Black);
-    //   } else {
-    //     widget = widget.bg(Color::Reset).fg(Color::Reset);
-    //   }
-    //   writeln!(&mut f, "rendering project #{} at {:?}", i, rect)?;
-    //   frame.render_widget(widget, rect);
-    //   rect.y += 1;
-    //   if rect.y >= frame.size().height {
-    //     break;
-    //   }
-    // }
+    let constraints: &[Constraint] = match details_opened {
+      true => &[Constraint::Percentage(20), Constraint::Percentage(80)],
+      false => &[Constraint::Percentage(100)],
+    };
+    let layout = Layout::horizontal(constraints).split(frame.size());
+    frame.render_stateful_widget(widget, layout[0], state);
+    if constraints.len() == 2 {
+      let proj = &projects[state.selected().unwrap_or_default()];
+      let details_text = format!(
+        "Languages: {}\nName: {}\nPath: {}",
+        proj
+          .kinds()
+          .iter()
+          .map(|k| k.name())
+          .collect::<Vec<_>>()
+          .join(","),
+        proj.name().unwrap_or_default(),
+        proj.path().display()
+      );
+      let details = Paragraph::new(details_text).block(Block::bordered().title("Details"));
+      frame.render_widget(details, layout[1]);
+    }
     Ok(())
   }
 
@@ -137,7 +124,7 @@ impl<'a> UI for Terminal<'a> {
   fn write_matches(
     &mut self,
     matches: &Vec<crate::Project>,
-    fmt: &crate::BoxedProjectMatchesFormatter,
+    _fmt: &crate::BoxedProjectMatchesFormatter,
   ) -> crate::Result<()> {
     self.projects.append(&mut matches.clone());
     self.projects_widget = List::new(
@@ -162,7 +149,7 @@ impl<'a> UI for Terminal<'a> {
     Ok(())
   }
 
-  fn write_log(&mut self, text: &str, lvl: log::Level) -> crate::Result<()> {
+  fn write_log(&mut self, _text: &str, _lvl: log::Level) -> crate::Result<()> {
     todo!()
   }
 
@@ -171,6 +158,7 @@ impl<'a> UI for Terminal<'a> {
       self.term.draw(|frame| {
         Self::render_frame(
           &self.projects,
+          self.details_opened,
           &self.projects_widget,
           &mut self.projects_state,
           frame,
@@ -181,17 +169,18 @@ impl<'a> UI for Terminal<'a> {
         if let Event::Key(key) = event::read()? {
           if KeyCode::Char('q') == key.code {
             break;
-          } else if !self.projects.is_empty() {
+          } else if KeyCode::Up == key.code {
             let cur_sel = self.projects_state.selected().unwrap_or_default();
-            if KeyCode::Up == key.code {
-              if cur_sel > 0 {
-                self.projects_state.select(Some(cur_sel - 1));
-              }
-            } else if KeyCode::Down == key.code {
-              if !self.projects.is_empty() && cur_sel < self.projects.len() - 1 {
-                self.projects_state.select(Some(cur_sel + 1));
-              }
+            if !self.projects.is_empty() && cur_sel > 0 {
+              self.projects_state.select(Some(cur_sel - 1));
             }
+          } else if KeyCode::Down == key.code {
+            let cur_sel = self.projects_state.selected().unwrap_or_default();
+            if !self.projects.is_empty() && cur_sel < self.projects.len() - 1 {
+              self.projects_state.select(Some(cur_sel + 1));
+            }
+          } else if KeyCode::Enter == key.code {
+            self.details_opened = !self.details_opened;
           }
         }
       }

@@ -70,7 +70,7 @@ impl App {
   }
 
   /// Run the application, scanning the code folders and filtering projects.
-  pub fn run(mut self) -> crate::Result<()> {
+  pub fn run(self) -> crate::Result<()> {
     if self.options.list && self.options.query != Default::default() {
       return Err(Error::Init(format!(
         "Query given with --list but the two options are mutually exclusive!"
