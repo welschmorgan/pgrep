@@ -6,8 +6,8 @@ use std::{
 };
 
 use crate::{
-  cache, detect_projects, AppOptions, BoxedProjectMatchesFormatter, BoxedUI, Cache, Config,
-  Console, Error, FolderScan, Project, Query,
+  cache, detect_projects, AppOptions, BoxedProjectMatchesFormatter, BoxedUI, Cache, Config, Error,
+  FolderScan, Project, Query,
 };
 use clap::Parser;
 use directories::ProjectDirs;
@@ -121,18 +121,30 @@ impl App {
       .iter()
       .map(|proj| (*proj).clone())
       .collect::<Vec<_>>();
-    
-      let mut ui: BoxedUI = match self.options.tui {
+
+      #[cfg(feature = "tui")]
+      let has_tui = self.options.tui;
+      #[cfg(not(feature = "tui"))]
+      let has_tui = false;
+      let mut ui: BoxedUI = match has_tui {
         true => {
           #[cfg(not(feature = "tui"))]
           panic!("Feature 'tui' not available");
           #[cfg(feature = "tui")]
           {
             use crate::Terminal;
-            Box::new(Terminal::new()?)
+            Box::new(Terminal::new(self.options.editor)?)
           }
         }
-        false => Box::new(Console::new()),
+        false => {
+          #[cfg(not(feature = "console"))]
+          panic!("Feature 'console' not available");
+          #[cfg(feature = "console")]
+          {
+            use crate::Console;
+            Box::new(Console::new())
+          }
+        }
       };
       ui.write_matches(&matches, &self.formatter)?;
       ui.render_loop()?;

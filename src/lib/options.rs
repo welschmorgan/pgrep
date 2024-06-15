@@ -54,8 +54,12 @@ pub struct AppOptions {
 
   /// Activate terminal ui
   #[cfg(feature = "tui")]
-  #[arg(long = "tui")]
+  #[arg(long)]
   pub tui: bool,
+
+  /// Define the path towards the editor to open
+  #[arg(short, long, env = "EDITOR")]
+  pub editor: Option<PathBuf>,
   
   /// List project without filtering them
   #[arg(short = 'l', long = "list")]

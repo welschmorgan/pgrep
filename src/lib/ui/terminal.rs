@@ -1,7 +1,5 @@
 use std::{
-  io::Stdout,
-  panic::{set_hook, take_hook},
-  time::Duration,
+  io::Stdout, panic::{set_hook, take_hook}, path::PathBuf, process::Command, time::Duration
 };
 
 use crate::{Error, Project, UI};
@@ -12,9 +10,10 @@ use crossterm::{
   terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 
+use log::Level;
 use ratatui::{
   backend::CrosstermBackend,
-  layout::{Constraint, Layout},
+  layout::{Constraint, Layout, Rect},
   style::{palette::tailwind, Modifier, Style},
   terminal::{Frame, Terminal as RataTerm},
   widgets::{Block, HighlightSpacing, List, ListState, Paragraph},
@@ -26,10 +25,11 @@ pub struct Terminal<'a> {
   projects_widget: List<'a>,
   projects_state: ListState,
   details_opened: bool,
+  editor: Option<PathBuf>
 }
 
 impl<'a> Terminal<'a> {
-  pub fn new() -> crate::Result<Self> {
+  pub fn new(editor: Option<PathBuf>) -> crate::Result<Self> {
     Self::init_panic_hook();
     let term = Self::init_tui()?;
     Ok(Self {
@@ -38,6 +38,7 @@ impl<'a> Terminal<'a> {
       projects_widget: List::new::<Vec<String>>(vec![]),
       projects_state: ListState::default(),
       details_opened: false,
+      editor
     })
   }
 
@@ -75,7 +76,14 @@ impl<'a> Terminal<'a> {
       true => &[Constraint::Percentage(20), Constraint::Percentage(80)],
       false => &[Constraint::Percentage(100)],
     };
-    let layout = Layout::horizontal(constraints).split(frame.size());
+    let frame_size = frame.size();
+    let main_rect = Rect::new(
+      frame_size.x,
+      frame_size.y,
+      frame_size.width,
+      frame_size.height - 1,
+    );
+    let layout = Layout::horizontal(constraints).split(main_rect);
     frame.render_stateful_widget(widget, layout[0], state);
     if constraints.len() == 2 {
       let proj = &projects[state.selected().unwrap_or_default()];
@@ -93,6 +101,14 @@ impl<'a> Terminal<'a> {
       let details = Paragraph::new(details_text).block(Block::bordered().title("Details"));
       frame.render_widget(details, layout[1]);
     }
+    let menu_rect = Rect::new(frame_size.x, frame_size.height - 1, frame_size.width, 1);
+    let menu_layout = Layout::horizontal(&[
+      Constraint::Percentage(25),
+      Constraint::Percentage(25),
+    ])
+    .split(menu_rect);
+    frame.render_widget(Paragraph::new("Toggle details (Return)"), menu_layout[0]);
+    frame.render_widget(Paragraph::new("[O]pen project"), menu_layout[1]);
     Ok(())
   }
 
@@ -127,12 +143,17 @@ impl<'a> UI for Terminal<'a> {
     _fmt: &crate::BoxedProjectMatchesFormatter,
   ) -> crate::Result<()> {
     self.projects.append(&mut matches.clone());
-    self.projects_widget = List::new(
-      self
-        .projects
+    self.projects_widget = List::new(self.projects.iter().map(|proj| {
+      let kinds = proj
+        .kinds()
         .iter()
-        .map(|proj| format!("{}", proj.name().unwrap_or_default())),
-    )
+        .map(|k| k.name())
+        .collect::<Vec<_>>()
+        .join(",");
+      let name = proj.name().unwrap_or_default();
+      let path = format!("{}", proj.path().display());
+      format!("[{}] {} - {}", kinds, name, path)
+    }))
     .block(Block::bordered().title(format!("Projects ({})", self.projects.len())))
     .highlight_style(
       Style::default()
@@ -181,6 +202,26 @@ impl<'a> UI for Terminal<'a> {
             }
           } else if KeyCode::Enter == key.code {
             self.details_opened = !self.details_opened;
+          } else if KeyCode::Char('o') == key.code {
+            let editor = self.editor.clone()
+                .or_else(|| std::env::var("EDITOR").ok().map(|v| PathBuf::from(v)))
+                .or_else(|| std::env::var("VISUAL").ok().map(|v| PathBuf::from(v)));
+            let editor = match editor {
+              Some(editor) => editor,
+              None => {
+                panic!("EDITOR or VISUAL environment variable missing, --editor missing please define it first.")
+              }
+            };
+            let proj = &self.projects[self.projects_state.selected().unwrap_or_default()];
+            let cmd = Command::new(editor)
+              .arg(format!("{}", proj.path().display()))
+              .spawn()?;
+            let output = cmd.wait_with_output()?;
+            let stdout = String::from_utf8(output.stdout)?;
+            let stderr = String::from_utf8(output.stderr)?;
+            if !output.status.success() {
+                self.write_log(&vec![stdout, stderr].join("\n"), Level::Error)?;
+            }
           }
         }
       }

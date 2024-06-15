@@ -1,3 +1,5 @@
+use std::string::FromUtf8Error;
+
 #[derive(Debug)]
 /// This crate's error type
 pub enum Error {
@@ -135,5 +137,11 @@ impl From<serde_json::Error> for Error {
       "failed to serialize entity".to_string(),
       Some(Box::new(value)),
     )
+  }
+}
+
+impl From<FromUtf8Error> for Error {
+  fn from(value: FromUtf8Error) -> Self {
+    Error::IO(format!("utf-8 conversion failed"), Some(Box::new(value)))
   }
 }

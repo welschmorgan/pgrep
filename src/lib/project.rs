@@ -116,7 +116,7 @@ impl ProjectKind {
     match self {
       Self::Rust => vec!["Cargo.toml", "Cargo.lock"],
       Self::Go => vec!["go.mod"],
-      Self::C => vec!["Makefile", "CMakefile"],
+      Self::C => vec!["Makefile", "CMakeLists.txt"],
       Self::Node => vec!["package.json", "package.lock"],
       Self::Maven => vec!["pom.xml"],
       Self::Other => vec!["README.md", "LICENSE.md", "CONTRIBUTING.md"],
