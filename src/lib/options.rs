@@ -51,6 +51,15 @@ pub struct AppOptions {
   /// Set the output format
   #[arg(long = "format", default_value = OutputFormat::VARIANTS.get(0).unwrap_or(&"text"))]
   pub format: OutputFormat,
+
+  /// Activate terminal ui
+  #[cfg(feature = "tui")]
+  #[arg(long)]
+  pub tui: bool,
+
+  /// Define the path towards the editor to open
+  #[arg(short, long, env = "EDITOR")]
+  pub editor: Option<PathBuf>,
   
   /// List project without filtering them
   #[arg(short = 'l', long = "list")]

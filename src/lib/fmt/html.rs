@@ -58,10 +58,10 @@ pub const HTML_TEMPLATE: &'static str = "
 </html>";
 
 impl ProjectMatchesFormatter for HtmlProjectMatchesWriter {
-  fn write<'a>(
-    &'a self,
-    to: &'a mut dyn std::io::Write,
-    matches: &'a Vec<&'a Project>,
+  fn write(
+    &self,
+    to: &mut dyn std::io::Write,
+    matches: &Vec<Project>,
   ) -> crate::Result<()> {
     let header = vec!["Language", "Name", "Path"]
       .iter()

@@ -24,10 +24,10 @@ pub trait ProjectMatchesFormatter {
   ///
   /// * `to` - The output stream to write to
   /// * `matches` - The project to be written
-  fn write<'a>(
-    &'a self,
-    to: &'a mut dyn std::io::Write,
-    matches: &'a Vec<&'a Project>,
+  fn write(
+    &self,
+    to: &mut dyn std::io::Write,
+    matches: &Vec<Project>,
   ) -> crate::Result<()>;
 }
 

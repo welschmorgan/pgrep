@@ -27,6 +27,7 @@ pub mod project;
 pub mod query;
 pub mod options;
 pub mod fmt;
+pub mod ui;
 
 pub use app::*;
 pub use cache::*;
@@ -36,3 +37,4 @@ pub use project::*;
 pub use query::*;
 pub use options::*;
 pub use fmt::*;
+pub use ui::*;

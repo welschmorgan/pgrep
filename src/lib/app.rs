@@ -6,8 +6,8 @@ use std::{
 };
 
 use crate::{
-  cache, detect_projects, AppOptions,
-  BoxedProjectMatchesFormatter, Cache, Config, Error, FolderScan, Project, Query,
+  cache, detect_projects, AppOptions, BoxedProjectMatchesFormatter, BoxedUI, Cache, Config, Error,
+  FolderScan, Project, Query,
 };
 use clap::Parser;
 use directories::ProjectDirs;
@@ -117,8 +117,37 @@ impl App {
           matches
         }
         true => projects,
+      }
+      .iter()
+      .map(|proj| (*proj).clone())
+      .collect::<Vec<_>>();
+
+      #[cfg(feature = "tui")]
+      let has_tui = self.options.tui;
+      #[cfg(not(feature = "tui"))]
+      let has_tui = false;
+      let mut ui: BoxedUI = match has_tui {
+        true => {
+          #[cfg(not(feature = "tui"))]
+          panic!("Feature 'tui' not available");
+          #[cfg(feature = "tui")]
+          {
+            use crate::Terminal;
+            Box::new(Terminal::new(self.options.editor)?)
+          }
+        }
+        false => {
+          #[cfg(not(feature = "console"))]
+          panic!("Feature 'console' not available");
+          #[cfg(feature = "console")]
+          {
+            use crate::Console;
+            Box::new(Console::new())
+          }
+        }
       };
-      self.write_report(&matches)?;
+      ui.write_matches(&matches, &self.formatter)?;
+      ui.render_loop()?;
     }
     self.cache.lock().unwrap().shutdown()?;
     Ok(())
@@ -169,7 +198,7 @@ impl App {
   }
 
   /// Write the report to the configured writer
-  pub fn write_report<'a>(&'a self, matches: &'a Vec<&'a Project>) -> crate::Result<()> {
+  pub fn write_report(&self, matches: &Vec<Project>) -> crate::Result<()> {
     self.formatter.write(&mut stdout(), matches)?;
     Ok(())
   }

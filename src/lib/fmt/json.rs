@@ -4,10 +4,10 @@ use crate::{Project, ProjectMatchesFormatter};
 pub struct JsonProjectMatchesWriter {}
 
 impl ProjectMatchesFormatter for JsonProjectMatchesWriter {
-  fn write<'a>(
-    &'a self,
-    to: &'a mut dyn std::io::Write,
-    matches: &'a Vec<&'a Project>,
+  fn write(
+    &self,
+    to: &mut dyn std::io::Write,
+    matches: &Vec<Project>,
   ) -> crate::Result<()> {
     write!(to, "{}", serde_json::to_string_pretty(matches)?)?;
     Ok(())
