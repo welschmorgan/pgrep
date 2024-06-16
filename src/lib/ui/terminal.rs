@@ -10,7 +10,7 @@ use crossterm::{
   terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 
-use log::Level;
+use log::{log, Level};
 use ratatui::{
   backend::CrosstermBackend,
   layout::{Constraint, Layout, Rect},
@@ -19,6 +19,9 @@ use ratatui::{
   widgets::{Block, HighlightSpacing, List, ListState, Paragraph},
 };
 
+/// The `ncurses` interface, which allows having a user-friendly TUI in the terminal.
+/// 
+/// Activate with the `tui` feature **and** the `--tui` option.
 pub struct Terminal<'a> {
   term: RataTerm<CrosstermBackend<Stdout>>,
   projects: Vec<Project>,
@@ -29,6 +32,10 @@ pub struct Terminal<'a> {
 }
 
 impl<'a> Terminal<'a> {
+  /// Create a `Terminal` instance.
+  /// This will:
+  ///   - Install panic hooks
+  ///   - Setup cooked mode
   pub fn new(editor: Option<PathBuf>) -> crate::Result<Self> {
     Self::init_panic_hook();
     let term = Self::init_tui()?;
@@ -42,6 +49,9 @@ impl<'a> Terminal<'a> {
     })
   }
 
+  /// Setup cooked mode
+  /// 
+  /// https://www.gnu.org/software/mit-scheme/documentation/stable/mit-scheme-ref/Terminal-Mode.html
   fn init_tui() -> crate::Result<RataTerm<CrosstermBackend<Stdout>>> {
     let mut stdout = std::io::stdout();
     enable_raw_mode()
@@ -56,6 +66,7 @@ impl<'a> Terminal<'a> {
       .map_err(|e| Error::IO(format!("failed to create terminal"), Some(Box::new(e))))
   }
 
+  /// Install a panic hook to restore the terminal to raw mode before printing it.
   fn init_panic_hook() {
     let original_hook = take_hook();
     set_hook(Box::new(move |panic_info| {
@@ -65,6 +76,9 @@ impl<'a> Terminal<'a> {
     }));
   }
 
+  /// Render a single terminal frame.
+  /// 
+  /// This will be called in a loop.
   pub fn render_frame(
     projects: &Vec<Project>,
     details_opened: bool,
@@ -114,6 +128,9 @@ impl<'a> Terminal<'a> {
     Ok(())
   }
 
+  /// Retore the terminal to it's raw mode
+  /// 
+  /// https://www.gnu.org/software/mit-scheme/documentation/stable/mit-scheme-ref/Terminal-Mode.html
   fn restore_tui(/* term: &mut RataTerm<CrosstermBackend<Stdout>> */) -> crate::Result<()> {
     let mut stdout = std::io::stdout();
     disable_raw_mode()
@@ -128,6 +145,7 @@ impl<'a> Terminal<'a> {
   }
 }
 
+/// Restore the terminal to it's raw mode when dropped
 impl<'a> Drop for Terminal<'a> {
   fn drop(&mut self) {
     let _ = Self::restore_tui();
@@ -173,7 +191,7 @@ impl<'a> UI for Terminal<'a> {
   }
 
   fn write_log(&mut self, _text: &str, _lvl: log::Level) -> crate::Result<()> {
-    todo!()
+    unimplemented!("log messages display")
   }
 
   fn render_loop(&mut self) -> crate::Result<()> {

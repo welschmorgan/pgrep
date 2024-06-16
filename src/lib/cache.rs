@@ -20,7 +20,9 @@ pub struct Index {
   written_at: Option<DateTime<Local>>,
 }
 
-/// The cache store
+/// The cache store holding the caching state of the whole app.
+/// 
+/// It will write the index on shutdown to persist state.
 pub struct Cache {
   base_dir: PathBuf,
   index: Index,
