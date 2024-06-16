@@ -24,7 +24,6 @@ std-formats = ["text", "csv", "json", "xml", "html", "markdown"]
 console = []
 tui = ["dep:ratatui", "dep:crossterm"]
 default = ["std-formats", "console", "tui"]
-crossterm = ["dep:crossterm"]
 
 [dependencies]
 chrono = { version = "0.4.38", features = ["serde"] }

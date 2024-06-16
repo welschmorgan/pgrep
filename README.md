@@ -12,19 +12,25 @@ It allows fast filtering, selection and quick actions on the found projects.
 
 Ever wondered where a project you did ages ago lies ? Use `pgrep 'project'` to quickly find where it is.
 
-## Showcase: Wildcard filtering
+## Showcases
 
-The following `test.toml` file:
-```toml
-[general]
-folders = ["~/development"]
-```
+<details>
+  <summary>Wildcard filtering</summary>
+  
+  ![showcase-simple-filter](img/showcase-simple-filter.gif)
 
-Yields the following results:
+</details>
 
-![showcase-simple-filter](img/showcase-simple-filter.gif)
+<details open>
+  <summary>TUI</summary>
+  
+  **NOTE**: Use the `--tui` option when the `tui` feature is active
+  
+  ![showcase-tui](img/showcase-tui.gif)
 
-## Features
+</details>
+
+## Functionalities
 
 The following list represents the planned or implemented features:
 
@@ -37,6 +43,21 @@ The following list represents the planned or implemented features:
   - [ ] backup
 - [ ] Search in source code
 
+## Cargo features
+
+| Name        | Active by default | Description                                      | Dependencies                         |
+| ----------- | :---------------: | ------------------------------------------------ | ------------------------------------ |
+| default     |         ✅         | The default features list                        | std-formats, console, tui            |
+| std-formats |         ✅         | The standard formats used by default             | text, csv, json, xml, html, markdown |
+| text        |         ✅         | Support outputting text reports                  |                                      |
+| json        |         ✅         | Support outputting json reports                  | dep:serde_json                       |
+| csv         |         ✅         | Support outputting csv reports                   |                                      |
+| xml         |         ✅         | Support outputting xml reports                   |                                      |
+| html        |         ✅         | Support outputting html reports                  |                                      |
+| markdown    |         ✅         | Support outputting markdown reports              |                                      |
+| console     |         ✅         | Write to console directly                        |                                      |
+| tui         |         ✅         | Add the `--tui` option to show ncurses interface | dep:ratatui, dep:crossterm           |
+
 ## Prerequisites
 
 A working rust 1.7+ toolchain (`1.78.0`).
@@ -47,6 +68,27 @@ To build and install the binaries to `~/.cargo/bin` use:
 
 ```shell
 cargo install --path .
+```
+
+## Configuration
+
+The first time you run this tool a configuration file will be written to you home's config folder
+(usually `~/.config/pgrep/pgrep.toml`).
+
+To add folders to it just use the `-F` option, like so:
+
+```shell
+pgrep -F '~/my-root-code-folder'
+```
+
+The resulting configuration would look like this:
+
+```toml
+[general]
+folders = [
+    "/home/<username>/my-root-code-folder",
+]
+project_kinds = []
 ```
 
 ## Creating custom project detection rules

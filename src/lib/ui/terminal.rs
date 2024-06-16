@@ -105,10 +105,12 @@ impl<'a> Terminal<'a> {
     let menu_layout = Layout::horizontal(&[
       Constraint::Percentage(25),
       Constraint::Percentage(25),
+      Constraint::Percentage(25),
     ])
     .split(menu_rect);
-    frame.render_widget(Paragraph::new("Toggle details (Return)"), menu_layout[0]);
-    frame.render_widget(Paragraph::new("[O]pen project"), menu_layout[1]);
+    frame.render_widget(Paragraph::new("[Q]uit"), menu_layout[0]);
+    frame.render_widget(Paragraph::new("Toggle details (Return)"), menu_layout[1]);
+    frame.render_widget(Paragraph::new("[O]pen project"), menu_layout[2]);
     Ok(())
   }
 
